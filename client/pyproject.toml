@@ -1,0 +1,20 @@
+[project]
+name = "emotion-light-sound-client"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "client_web_server",
+    "opencv_face",
+]
+
+[tool.uv.sources]
+client_web_server = { workspace = true }
+opencv_face = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "src/client_web_server",
+    "src/opencv_face",
+]

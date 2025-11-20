@@ -1,0 +1,11 @@
+[project]
+name = "client-web-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.121.3",
+    "python-socketio>=5.14.3",
+    "uvicorn>=0.38.0",
+]
