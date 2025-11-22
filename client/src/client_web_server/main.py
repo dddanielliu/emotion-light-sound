@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..opencv_face import face_detection
+from opencv_face import face_detection
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -88,7 +88,7 @@ async def handle_video_frame(sid, metadata, blob):
 
     # processed_image = face_detection.detect_faces(blob)
     loop = asyncio.get_running_loop()
-    processed_image = await loop.run_in_executor(
+    processed_image, emotion = await loop.run_in_executor(
         None, face_detection.detect_faces, blob
     )
     reply_event = "processed_video_frame"
@@ -98,7 +98,8 @@ async def handle_video_frame(sid, metadata, blob):
         "timestamp_received": time.time(),
         "original_timestamp": timestamp,
         "width": width,
-        "height": height
+        "height": height,
+        "emotion": emotion
     }
     await sio.emit(reply_event, data=(reply_metadata, processed_image), to=sid)
 

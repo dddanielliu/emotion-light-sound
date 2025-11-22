@@ -1,2 +1,2 @@
-from .client_web_server.main import main
+from client_web_server.main import main
 main()

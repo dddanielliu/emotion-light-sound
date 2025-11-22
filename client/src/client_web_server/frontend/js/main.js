@@ -115,12 +115,6 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
             clearInterval(videoInterval);
             videoInterval = null;
         }
-
-        // if (audioContext) {
-        //     audioContext.close().then(() => {
-        //         audioContext = null;
-        //     });
-        // }
     });
 
     socket.on('connect_error', (error) => {
@@ -133,34 +127,31 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
 
     socket.on('processed_video_frame', (metadata, blob) => {
         // 1. Get the display element (now an <img>)
-        const processedImage = document.getElementById('processed_cam'); 
-        
+        const processedImage = document.getElementById('processed_cam');
+
         if (processedImage && blob) {
             // The 'blob' from Socket.IO is a JavaScript ArrayBuffer (binary data).
-            const receivedBlob = new Blob([blob], { type: 'image/webp' }); 
-            // console.log("Received processed video frame blob:", receivedBlob);
-            // console.log("Metadata:", metadata);
-            
+            const receivedBlob = new Blob([blob], { type: 'image/webp' });
+
             // Revoke the previous Object URL to free memory
-            // This check is important for continuous streaming
             if (processedImage.src && processedImage.src.startsWith('blob:')) {
                 URL.revokeObjectURL(processedImage.src);
             }
-            
+
             // 2. Create the URL and set it as the source
             const imgUrl = URL.createObjectURL(receivedBlob);
             processedImage.src = imgUrl;
 
-            // Note: No need for .play().catch() since we are using <img>!
-            
-            // Optional: Log latency
-            // const latency = Date.now() - metadata.original_timestamp;
-            // console.log(`Frame received. Latency: ${latency}ms`);
+            // Update emotion display
+            if (metadata.emotion) {
+                const emotionEl = document.getElementById('emotion_result');
+                if (emotionEl) {
+                    emotionEl.textContent = metadata.emotion.toUpperCase();
+                }
+            }
         }
     });
 }
-
-
 
 // --- START STREAMING USING EXISTING STREAM ---
 async function startMediaStreaming(clientId) {
@@ -169,14 +160,6 @@ async function startMediaStreaming(clientId) {
             console.error("No media stream from preview!");
             return;
         }
-
-        // Audio processing (turn mic on now)
-        // const audioTrack = mediaStream.getAudioTracks()[0];
-        // if (audioTrack) {
-        //     setupMicrophoneProcessing(clientId, mediaStream);
-        // } else {
-        //     setMicStatus("not available");
-        // }
 
         // Video processing (same track used, no restart)
         const videoTrack = mediaStream.getVideoTracks()[0];
@@ -192,39 +175,6 @@ async function startMediaStreaming(clientId) {
         setVideoStatus("error");
     }
 }
-
-
-
-// --- MICROPHONE PROCESSING ---
-// async function setupMicrophoneProcessing(clientId, stream) {
-//     try {
-//         audioContext = new AudioContext();
-
-//         micSource = audioContext.createMediaStreamSource(stream);
-
-//         await audioContext.audioWorklet.addModule('/js/mic-resampler.js');
-//         processorNode = new AudioWorkletNode(audioContext, 'mic-resampler', { numberOfOutputs: 0 });
-//         processorNode.port.postMessage({ type: 'set-sample-rate', sampleRate: audioContext.sampleRate });
-
-//         micSource.connect(processorNode);
-//         mic_available = true;
-//         start_msg();
-//         setMicStatus("active");
-
-//         processorNode.port.onmessage = function(event) {
-//             const { audioData, sampleRate } = event.data;
-//             if (audioData && socket && socket.connected) {
-//                 socket.emit('audio_chunk', { client_id: clientId, sampleRate }, audioData);
-//             }
-//         };
-
-//     } catch (e) {
-//         console.error("Microphone processing setup error:", e);
-//         setMicStatus("error");
-//     }
-// }
-
-
 
 // --- VIDEO PROCESSING ---
 function startVideoProcessing(client_id, stream) {
