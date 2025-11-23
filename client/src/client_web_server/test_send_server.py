@@ -90,7 +90,7 @@ async def send_updates_loop():
 
 
 async def main():
-    await sio_cloud.connect("http://localhost:8080")
+    await sio_cloud.connect(CLOUD_SERVER_URL)
     # start the update loop
     asyncio.create_task(send_updates_loop())
     # keep running
