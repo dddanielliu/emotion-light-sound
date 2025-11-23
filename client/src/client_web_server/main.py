@@ -1,10 +1,11 @@
 import asyncio
-import io
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from urllib.parse import urlencode, urljoin
 
+import requests
 import socketio
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, Request
@@ -12,19 +13,94 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from opencv_face import face_detection
+from ..opencv_face import face_detection
+
+CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+sio_cloud = socketio.AsyncClient()
+sid_cloud = None
+
+@sio_cloud.event
+async def connect_cloud():
+    logger.info("Connected to Cloud server")
+
+@sio_cloud.event
+async def disconnect_cloud():
+    logger.info("Disconnected from Cloud server")
+
+@sio_cloud.on("connected")
+async def handle_set_sid_cloud(data):
+    global sid_cloud
+    sid_cloud = data["sid"]
+    logger.info("Set sid to %s", sid_cloud)
+
+@sio_cloud.on("music_generated")
+async def music_generated(data):
+    """
+    Handle receiving music from the cloud.
+    """
+    print(f"Received music {data}")
+    # data example:
+    # {
+    #     'fileurl': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
+    #     'metadata':
+    #         {
+    #             'timestamp': '2025-11-23T10:44:10.953+00:00',
+    #             'emotion_dict': {'pre': 'happy'},
+    #             'prompt': 'generate music based on emotion'
+    #         }
+    # }
+
+    fileurl = data["fileurl"]
+    params = {
+        "owner_id": sid_cloud,
+        "file": fileurl
+    }
+    url = urljoin(CLOUD_SERVER_URL, "get_music") + '?' + urlencode(params)
+
+    # get the music from server
+    music_bytes = requests.get(url).content
+    # with open("music.wav", "wb") as f:
+    #     f.write(music_bytes)
+
+    # TODO: Play the music in frontend
+
+def save_file(filename, data):
+    with open(filename, "wb") as f:
+        f.write(data)
+
+async def keep_alive():
+    """Background task to keep the connection alive"""
+    while True:
+        # logger.debug("Sending keep-alive ping to cloud server")
+        await sio_cloud.emit("ping")
+        await asyncio.sleep(25)
 
 # Application startup and shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting lifespan...")
+    
+    # Connect to Cloud Server on startup
+    try:
+        await sio_cloud.connect(CLOUD_SERVER_URL)
+        logger.info("Connected to cloud server at %s", CLOUD_SERVER_URL)
+        asyncio.create_task(keep_alive())
+    except Exception as e:
+        logger.error(f"Failed to connect to cloud server: {e}")
+
     yield
+
+    yield
+
+    # Cleanup on shutdown
+    if sio_cloud.connected:
+        await sio_cloud.disconnect()
 
 # Create SocketIO server
 sio = socketio.AsyncServer(

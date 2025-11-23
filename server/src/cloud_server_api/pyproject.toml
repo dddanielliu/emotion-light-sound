@@ -1,11 +1,10 @@
 [project]
-name = "client-web-server"
+name = "cloud-server-api"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp>=3.13.2",
     "fastapi>=0.121.3",
     "python-socketio>=5.14.3",
     "uvicorn>=0.38.0",
