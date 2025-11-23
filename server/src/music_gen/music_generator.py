@@ -1,7 +1,6 @@
-import queue
 import asyncio
-from typing import Dict, Optional, Callable, Any
 import logging
+from typing import Any, Callable, Dict, Optional
 
 from pydantic import BaseModel, ValidationError, model_validator
 
@@ -93,30 +92,35 @@ class QueueManager:
                 self.music_generator.generate, item.prompt
             )
             if item.sid:
-                logger.info(f"Generated {len(generated_music)} bytes for sid: {item.sid}")
+                logger.info(
+                    f"Generated {len(generated_music)} bytes for sid: {item.sid}"
+                )
                 logger.debug(f"\titem: {item.model_dump()}")
                 metadata = item.metadata if item.metadata else {}
                 metadata["prompt"] = item.prompt
-                
+
                 asyncio.create_task(
                     self.notify_socketio_client_music_generated(
-                        event="music_generated", sid=item.sid, music_bytes=generated_music, metadata=item.metadata
+                        event="music_generated",
+                        sid=item.sid,
+                        music_bytes=generated_music,
+                        metadata=item.metadata,
                     )
                 )
 
             if item.client_id:
-                logger.info(f"Generated {len(generated_music)} bytes for client_id: {item.client_id}")
+                logger.info(
+                    f"Generated {len(generated_music)} bytes for client_id: {item.client_id}"
+                )
                 logger.debug(f"\titem: {item.model_dump()}")
                 asyncio.create_task(
                     self.create_url(
-                        owner_id=item.client_id, music_bytes=generated_music, metadata=item.metadata
+                        owner_id=item.client_id,
+                        music_bytes=generated_music,
+                        metadata=item.metadata,
                     )
                 )
 
             self.queue.task_done()
 
             print(f"Finished processing item: {item.prompt}")
-
-
-            # Do something with the generated music, e.g., send it back to the client
-            # using item.sid or item.client_id

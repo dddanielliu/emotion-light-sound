@@ -3,6 +3,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -140,6 +141,8 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting lifespan...")
 
+    shutil.rmtree("tmp", ignore_errors=True)
+
     # Register the handler
     loop = asyncio.get_running_loop()
     loop.set_exception_handler(handle_task_exception)
@@ -201,17 +204,19 @@ async def handle_emotion_update(sid, data):
     # tz = timezone(timedelta(hours=3))
     # dt = dt.astimezone(tz)
 
+    # ISO-8601 format with milliseconds
     dt_formatted = dt.isoformat(timespec="milliseconds")
-    timestamp = metadata.get("timestamp") if (metadata and metadata.get("timestamp")) else None
+    timestamp = (
+        metadata.get("timestamp") if (metadata and metadata.get("timestamp")) else None
+    )
     if timestamp is None:
         timestamp = dt_formatted
     else:
+        # check if timestamp is correct format
         try:
             datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
         except ValueError:
             timestamp = dt_formatted
-    # ISO-8601 format with milliseconds
-    # check if timestamp is correct format
 
     logger.info(f"Emotion update received at {timestamp}: {emotion_dict}")
     await musicgen_queue.add_item(
@@ -278,9 +283,7 @@ async def receive_emotion_update(
 
 @app.get("/get_music")
 async def get_music(
-    background_tasks: BackgroundTasks,
-    owner_id: str,
-    file: str | None = None
+    background_tasks: BackgroundTasks, owner_id: str, file: str | None = None
 ):
     """Endpoint to retrieve generated music file"""
     if file is None:
