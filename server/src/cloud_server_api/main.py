@@ -101,18 +101,20 @@ async def createmusicurl(
     return url_hash
 
 
-async def remove_file_and_entry(owner_id: str, url_hash: str) -> None:
+async def remove_file_and_entry(owner_id: str, url_hash: str, filepath: str) -> None:
     """Remove the file from disk and delete the entry from music_urls"""
     global music_urls
-    filepath = None
     async with music_urls_lock:
         if owner_id in music_urls and url_hash in music_urls[owner_id]:
             filepath = music_urls[owner_id][url_hash]
             del music_urls[owner_id][url_hash]
-            if not music_urls[owner_id]:
-                del music_urls[owner_id]
+        if not music_urls[owner_id]:
+            del music_urls[owner_id]
     if os.path.exists(filepath):
         os.remove(filepath)
+        print("File deleted.", filepath)
+    else:
+        print("File does not exist.", filepath)
 
 
 async def notify_socketio_client_music_generated(
@@ -124,7 +126,7 @@ async def notify_socketio_client_music_generated(
     url_hash = await createmusicurl(
         owner_id=sid, music_bytes=music_bytes, metadata=kwargs.get("metadata")
     )
-    await send_to_socketio_client(event=event, to=sid, fileurl=url_hash, **kwargs)
+    await send_to_socketio_client(event=event, to=sid, file_id=url_hash, **kwargs)
 
 
 # Application startup and shutdown events
@@ -283,10 +285,10 @@ async def receive_emotion_update(
 
 @app.get("/get_music")
 async def get_music(
-    background_tasks: BackgroundTasks, owner_id: str, file: str | None = None
+    background_tasks: BackgroundTasks, owner_id: str, file_id: str | None = None
 ):
     """Endpoint to retrieve generated music file"""
-    if file is None:
+    if file_id is None:
         files_list = []
         if owner_id in music_urls:
             async with music_urls_lock:
@@ -294,10 +296,10 @@ async def get_music(
         return {"available_files": files_list}
     filepath = None
     async with music_urls_lock:
-        if owner_id in music_urls and file in music_urls[owner_id]:
-            filepath = music_urls[owner_id][file]
+        if owner_id in music_urls and file_id in music_urls[owner_id]:
+            filepath = music_urls[owner_id][file_id]
     if filepath and os.path.exists(filepath):
-        background_tasks.add_task(remove_file_and_entry, owner_id, file)
+        background_tasks.add_task(remove_file_and_entry, owner_id, file_id, filepath)
         return FileResponse(
             filepath, media_type="audio/wav", filename=os.path.basename(filepath)
         )

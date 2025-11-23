@@ -47,7 +47,7 @@ async def music_generated(data):
     print(f"Received music {data}")
     # data example:
     # {
-    #     'fileurl': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
+    #     'file_id': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
     #     'metadata':
     #         {
     #             'timestamp': '2025-11-23T10:44:10.953+00:00',
@@ -56,10 +56,10 @@ async def music_generated(data):
     #         }
     # }
 
-    fileurl = data["fileurl"]
+    file_id = data["file_id"]
     params = {
         "owner_id": sid_cloud,
-        "file": fileurl
+        "file_id": file_id
     }
     url = urljoin(CLOUD_SERVER_URL, "get_music") + '?' + urlencode(params)
 
@@ -207,8 +207,8 @@ async def health_check():
 
 def main():
     logger.info("Starting multi-client media processing server...")
-    # When running as a module (python -m src.model.stream_server.main),
-    # __package__ will be the package path (e.g. 'src.model.stream_server').
+    # When running as a module (python -m src.client_web_server.main),
+    # __package__ will be the package path (e.g. 'src.client_web_server').
     # Use a package-qualified import string for uvicorn so the reloader's
     # subprocess imports the correct module and relative imports work.
     if __package__:
