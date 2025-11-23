@@ -51,6 +51,7 @@ async def send_to_socketio_client(event: str, to: str, **kwargs) -> None:
     # Usage:
     # send_to_socketio_client('my_event', 'sid123', name='Alice', age=30)
 
+
 def _save_file_sync(
     owner_id: str, music_bytes: bytes, metadata: Optional[Dict[str, Any]] = None
 ) -> tuple[str, str]:
@@ -79,10 +80,9 @@ def _save_file_sync(
 
     return url_hash, filepath
 
+
 async def createmusicurl(
-    owner_id: str,
-    music_bytes: bytes,
-    metadata: Optional[Dict[str, Any]] = None
+    owner_id: str, music_bytes: bytes, metadata: Optional[Dict[str, Any]] = None
 ) -> str:
     """Create a temporary URL for the generated music file"""
     print("Creating music URL...")
@@ -99,6 +99,7 @@ async def createmusicurl(
         print(f"Current music_urls: {music_urls}")
     return url_hash
 
+
 async def remove_file_and_entry(owner_id: str, url_hash: str) -> None:
     """Remove the file from disk and delete the entry from music_urls"""
     global music_urls
@@ -112,13 +113,16 @@ async def remove_file_and_entry(owner_id: str, url_hash: str) -> None:
     if os.path.exists(filepath):
         os.remove(filepath)
 
+
 async def notify_socketio_client_music_generated(
     event: str,
     sid: str,
     music_bytes: bytes,
     **kwargs,
 ) -> None:
-    url_hash = await createmusicurl(owner_id=sid, music_bytes=music_bytes, metadata=kwargs.get("metadata"))
+    url_hash = await createmusicurl(
+        owner_id=sid, music_bytes=music_bytes, metadata=kwargs.get("metadata")
+    )
     await send_to_socketio_client(event=event, to=sid, fileurl=url_hash, **kwargs)
 
 
@@ -143,7 +147,7 @@ async def lifespan(app: FastAPI):
     global musicgen_queue
     musicgen_queue = QueueManager(
         sender_callable=notify_socketio_client_music_generated,
-        url_creator_callable=createmusicurl
+        url_creator_callable=createmusicurl,
     )
     global music_urls_lock
     music_urls_lock = asyncio.Lock()
@@ -179,9 +183,11 @@ async def connect(sid, environ, auth):
     logger.info("Client connected with session ID %s (auth: %s)", sid, auth)
     await sio.emit("connected", {"sid": sid}, to=sid)
 
+
 class EmotionUpdate(BaseModel):
     emotion_dict: Dict[str, str]
     metadata: Optional[Dict] = None
+
 
 @sio.on("emotion_update")
 async def handle_emotion_update(sid, data):
@@ -214,11 +220,13 @@ async def handle_emotion_update(sid, data):
         metadata={"timestamp": timestamp, "emotion_dict": emotion_dict},
     )
 
+
 @sio.on("ping")
 async def handle_ping(sid):
     """Handle ping from client for health check"""
     logger.info(f"Ping received from {sid}")
     await sio.emit("pong", data={"message": "pong"}, to=sid)
+
 
 @app.get("/")
 async def serve_index(request: Request):
