@@ -41,6 +41,19 @@ class MusicGenerator:
         return b""  # Placeholder for generated music bytes
 
 
+    def emotion_to_prompt(self,emotion:str)->str:
+        prompt = {
+        "angry": "aggressive industrial metal, distorted heavy guitars, pounding drums, dark atmosphere, fast tempo 140 BPM, intense energy",
+        "disgust": "creepy dissonant ambient, eerie soundscape, uncomfortable textures, wet squelching synths, minor key horror atmosphere",
+        "fear": "horror movie soundtrack, suspenseful strings, heartbeat kick drum, dark ambient drones, sudden scares, minor key tension",
+        "happy": "upbeat pop dance music, bright major chords, catchy melody, energetic drums, summer vibe, 128 BPM, joyful and fun",
+        "sad": "slow emotional piano ballad, minor key, reverb soaked, melancholic melody, soft strings, rain sounds in background, very emotional",
+        "surprise": "playful upbeat electronic, sudden drops, quirky synth leads, cartoonish sound effects, fast tempo changes, energetic and fun",
+        "neutral": "calm ambient chillout, soft pads, gentle arpeggios, peaceful atmosphere, nature sounds, 90 BPM relaxing lo-fi"
+        }
+
+        return prompt.get(emotion.lower(),"peaceful and calm")
+
 class InstanceItem(BaseModel):
     sid: Optional[str] = None
     client_id: Optional[str] = None
