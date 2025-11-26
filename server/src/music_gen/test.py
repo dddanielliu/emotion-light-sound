@@ -2,9 +2,7 @@ import os
 from music_generator import MusicGenerator  
 
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(CURRENT_DIR, "outputs")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = "test_musics"
 if __name__ == "__main__":
     print("test start\n")
     print("initialize\n")
@@ -25,4 +23,3 @@ if __name__ == "__main__":
         f.write(music_bytes)
         
     print("done！")
-    
