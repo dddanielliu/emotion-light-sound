@@ -220,11 +220,15 @@ async def handle_emotion_update(sid, data):
         except ValueError:
             timestamp = dt_formatted
 
+    safe_metadata = metadata.copy()
+    safe_metadata.pop("timestamp", None)
+    safe_metadata.pop("emotion_dict", None)
+
     logger.info(f"Emotion update received at {timestamp}: {emotion_dict}")
     await musicgen_queue.add_item(
         prompt="generate music based on emotion",
         sid=sid,
-        metadata={"timestamp": timestamp, "emotion_dict": emotion_dict},
+        metadata={"timestamp": timestamp, "emotion_dict": emotion_dict, **safe_metadata},
     )
 
 
