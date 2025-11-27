@@ -33,7 +33,7 @@ This module (`opencv_face`) provides robust face detection and real-time emotion
 The main entry point is the `detect_faces` function in `face_detection.py`:
 
 ```python
-from opencv_face.face_detection import detect_faces
+from ..opencv_face.face_detection import detect_faces
 
 # image_bytes: Raw bytes of the image frame
 processed_image_bytes, emotion_result = detect_faces(image_bytes)
