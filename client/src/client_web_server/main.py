@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from opencv_face import face_detection
+from ..opencv_face import face_detection
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)

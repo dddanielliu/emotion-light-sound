@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -179,7 +179,7 @@ wheels = [
 [[package]]
 name = "client-web-server"
 version = "0.1.0"
-source = { editable = "src/client_web_server" }
+source = { virtual = "src/client_web_server" }
 dependencies = [
     { name = "fastapi" },
     { name = "python-socketio" },
@@ -239,8 +239,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "client-web-server", editable = "src/client_web_server" },
-    { name = "opencv-face", editable = "src/opencv_face" },
+    { name = "client-web-server", virtual = "src/client_web_server" },
+    { name = "opencv-face", virtual = "src/opencv_face" },
 ]
 
 [[package]]
@@ -758,7 +758,7 @@ wheels = [
 [[package]]
 name = "opencv-face"
 version = "0.1.0"
-source = { editable = "src/opencv_face" }
+source = { virtual = "src/opencv_face" }
 dependencies = [
     { name = "deepface" },
     { name = "numpy" },
