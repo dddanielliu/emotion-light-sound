@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import os
 import time
+import asyncio
 from collections import deque, Counter
 
 print("OpenCV version:", cv2.__version__)
@@ -14,7 +15,43 @@ latest_frame_bytes = None
 is_processing = False
 last_processed_image = None
 last_emotion_result = "neutral"
-emotion_buffer = deque(maxlen=10)
+emotion_buffer = deque(maxlen=10)  # Now stores (emotion, score) tuples
+
+# Global variables for timed emotion updates
+last_pre_update_time = 0
+last_post_update_time = 0
+emotion_update_callback = None
+main_event_loop = None
+
+def calculate_confidence(buffer, dominant_emotion):
+    """
+    Calculate confidence as the average score of all entries matching the dominant emotion.
+    
+    Args:
+        buffer: deque of (emotion, score) tuples
+        dominant_emotion: the emotion to calculate confidence for
+    
+    Returns:
+        float: average score of matching emotions (0.0-1.0), or 0.0 if no matches
+    """
+    matching_scores = [score for emotion, score in buffer if emotion == dominant_emotion]
+    if not matching_scores:
+        return 0.0
+    # DeepFace returns scores in 0-100 range, convert to 0.0-1.0
+    avg_score = sum(matching_scores) / len(matching_scores)
+    return avg_score / 100.0
+
+def set_emotion_update_callback(callback, loop=None):
+    """
+    Register a callback function to be called when emotion updates are ready.
+    
+    Args:
+        callback: async function with signature: callback(emotion_dict, metadata)
+        loop: the main event loop to schedule the callback on
+    """
+    global emotion_update_callback, main_event_loop
+    emotion_update_callback = callback
+    main_event_loop = loop
 
 def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
     global latest_frame_bytes, is_processing, last_processed_image, last_emotion_result, emotion_buffer
@@ -115,27 +152,72 @@ def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
             # if we are sure we passed a face. However, for robustness, let's keep enforce_detection=False.
             
             current_emotion = "neutral"
+            emotion_score = 0.0
             try:
                 analyze = DeepFace.analyze(target_img, actions=["emotion"], enforce_detection=False, silent=True)
                 if analyze:
                     # analyze is a list of dicts
                     result = analyze[0]
                     current_emotion = result.get("dominant_emotion", "neutral")
+                    # Extract the score for the detected emotion
+                    emotion_score = result.get("emotion", {}).get(current_emotion, 0.0)
             except ValueError:
                 # DeepFace might raise ValueError if image is too small or other issues
                 pass
             
-            # Add current emotion to buffer
-            emotion_buffer.append(current_emotion)
+            # Add current emotion AND score to buffer as a tuple
+            emotion_buffer.append((current_emotion, emotion_score))
             
             # Calculate the most frequent emotion in the buffer (Mode)
+            # Extract just the emotion names for counting
             if emotion_buffer:
-                counts = Counter(emotion_buffer)
+                emotion_names = [emo for emo, _ in emotion_buffer]
+                counts = Counter(emotion_names)
                 emotion_result = counts.most_common(1)[0][0]
-                print(f"Raw: {current_emotion:10} | Smoothed: {emotion_result:10} | Buffer: {list(emotion_buffer)}")
+                
+                # Calculate confidence as average score of matching emotions
+                confidence = calculate_confidence(emotion_buffer, emotion_result)
+                
+                print(f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f}) | Buffer: {list(emotion_buffer)}")
             else:
                 emotion_result = current_emotion
-                print(f"Raw: {current_emotion:10} | Smoothed: {emotion_result:10}")
+                confidence = emotion_score
+                print(f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f})")
+            
+            # Check if we need to send timed emotion updates
+            current_time = time.time()
+            global last_pre_update_time, last_post_update_time
+            
+            # Send "pre" update every 0.5 seconds
+            if current_time - last_pre_update_time >= 0.5:
+                if emotion_update_callback and main_event_loop:
+                    # TEST: Force "happy" to check if server ignores "neutral"
+                    emotion_dict = {"pre": emotion_result} 
+                    metadata = {"confidence": float(confidence)}  # Convert to Python float for JSON serialization
+                    # Use run_coroutine_threadsafe to schedule callback on main loop from thread
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            emotion_update_callback(emotion_dict, metadata),
+                            main_event_loop
+                        )
+                    except Exception as e:
+                        print(f"Error calling emotion update callback (pre): {e}")
+                last_pre_update_time = current_time
+            
+            # Send "post" update every 1.0 seconds
+            if current_time - last_post_update_time >= 1.0:
+                if emotion_update_callback and main_event_loop:
+                    emotion_dict = {"post": emotion_result}
+                    metadata = {"confidence": float(confidence)}  # Convert to Python float for JSON serialization
+                    # Use run_coroutine_threadsafe to schedule callback on main loop from thread
+                    try:
+                        asyncio.run_coroutine_threadsafe(
+                            emotion_update_callback(emotion_dict, metadata),
+                            main_event_loop
+                        )
+                    except Exception as e:
+                        print(f"Error calling emotion update callback (post): {e}")
+                last_post_update_time = current_time
                 
         except Exception as e:
             print(f"Analysis failed: {e}")

@@ -1,0 +1,15 @@
+services:
+  cloud-server:
+    build:
+      context: .
+    stdin_open: true
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              # device_ids: ['1']
+              capabilities: [gpu]
