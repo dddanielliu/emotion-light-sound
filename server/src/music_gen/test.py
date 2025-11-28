@@ -1,25 +1,20 @@
-import os
-from music_generator import MusicGenerator  
+from music_generator import MusicGenerator, model, processor, SAMPLING_RATE
+from scipy.io import wavfile
 
+OUTPUT_FILE = "test_output.wav"
 
-OUTPUT_DIR = "test_musics"
-if __name__ == "__main__":
-    print("test start\n")
-    print("initialize\n")
-    gen = MusicGenerator()
+def main():
+    print("🚀 初始化 MusicGenerator...")
+    gen = MusicGenerator(model, processor, sampling_rate=SAMPLING_RATE)
 
-    print("emotion2prompt\n")
-    emotion = "happy"
+    print("🎯 開始生成音樂，情緒: happy, 時長: 8秒")
+    music_bytes = gen.generate("happy", duration=8)
 
-    print(emotion+"\n")
-    prompt = gen.emotion_to_prompt("happy")
-
-
-    print("gen music\n")
-    music_bytes = gen.generate(prompt)
-
-    output_path = os.path.join(OUTPUT_DIR, f"test_{emotion}.mp3")
-    with open(output_path, "wb") as f:
+    print(f"💾 儲存音樂到 {OUTPUT_FILE} ...")
+    with open(OUTPUT_FILE, "wb") as f:
         f.write(music_bytes)
-        
-    print("done！")
+
+    print(f"✅ 測試完成！請播放 {OUTPUT_FILE} 確認音樂是否正確生成。")
+
+if __name__ == "__main__":
+    main()
