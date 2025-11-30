@@ -1,20 +1,34 @@
-from music_generator import MusicGenerator, model, processor, SAMPLING_RATE
+import os
+import numpy as np
 from scipy.io import wavfile
+from music_generator import MusicGenerator
+import time
 
-OUTPUT_FILE = "test_output.wav"
+#音樂儲存位置
+def store_music(music, filename="song.wav"):
+    output_dir = os.path.join(os.getcwd(), "output")
+    os.makedirs(output_dir, exist_ok=True)
 
-def main():
-    print("🚀 初始化 MusicGenerator...")
-    gen = MusicGenerator(model, processor, sampling_rate=SAMPLING_RATE)
+    audio = music.get("audio")
+    sr = music.get("sampling_rate")
+    if audio is None or sr is None:
+        raise RuntimeError("Invalid music data")
 
-    print("🎯 開始生成音樂，情緒: happy, 時長: 8秒")
-    music_bytes = gen.generate("happy", duration=8)
-
-    print(f"💾 儲存音樂到 {OUTPUT_FILE} ...")
-    with open(OUTPUT_FILE, "wb") as f:
-        f.write(music_bytes)
-
-    print(f"✅ 測試完成！請播放 {OUTPUT_FILE} 確認音樂是否正確生成。")
+    audio_int16 = (audio * 32767).astype(np.int16)
+    output_path = os.path.join(output_dir, filename)
+    wavfile.write(output_path, rate=sr, data=audio_int16)
+    print(f"Saved music to {output_path}")
+    return output_path
 
 if __name__ == "__main__":
-    main()
+    mg = MusicGenerator()
+    # for emotion in mg.emotion_prompt:
+    start = time.time()
+    emotion = "angry"
+    mg.emotion_to_prompt(emotion)
+    print("generating...")
+    print(f"Emotion = {emotion}")
+    music = mg.generate_music(prompt= mg.prompt)
+    end = time.time()
+    store_music(music, filename=f"{emotion}.wav")
+    print(f"生成耗時: {end - start:.2f} 秒")

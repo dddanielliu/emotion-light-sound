@@ -2,21 +2,10 @@ import asyncio
 import logging
 from typing import Any, Callable, Dict, Optional
 from pydantic import BaseModel, ValidationError, model_validator
-from transformers import AutoProcessor, MusicgenForConditionalGeneration, pipeline
-from io import BytesIO
-from scipy.io import wavfile
+from transformers import pipeline
 import torch
-
-processor = AutoProcessor.from_pretrained("facebook/musicgen-small")  
-device = torch.device('cuda' if torch.cuda.is_available() else ('mps' if torch.backends.mps.is_available() else 'cpu')) # medium 音質最棒
-model = MusicgenForConditionalGeneration.from_pretrained(
-    "facebook/musicgen-small",
-    dtype=torch.float16,      # ✅ 改成 dtype
-    device_map="auto",
-    low_cpu_mem_usage=True
-    )
-SAMPLING_RATE = 32000
-
+import random
+import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,72 +13,76 @@ logger.setLevel(logging.DEBUG)
 
 
 class MusicGenerator:
-    def __init__(self, model, processor, sampling_rate = SAMPLING_RATE):
-        self.model = model
-        self.processor = processor
-        self.sampling_rate = sampling_rate
+    def __init__(self):
+        self.device = None
+        self.synthesiser = None
         self.prompt = ""
-        self.emotion = "neutral"
         self.emotion_prompt = {
-            "angry":    "aggressive industrial metal, distorted heavy guitars, pounding drums, dark atmosphere, fast tempo 140 BPM, intense energy",
-            "disgust":  "creepy dissonant ambient, eerie soundscape, uncomfortable textures, wet squelching synths, minor key horror atmosphere",
-            "fear":     "horror movie soundtrack, suspenseful strings, heartbeat kick drum, dark ambient drones, sudden scares, minor key tension",
-            "happy":    "upbeat pop dance music, bright major chords, catchy melody, energetic drums, summer vibe, 128 BPM, joyful and fun",
-            "sad":      "slow emotional piano ballad, minor key, reverb soaked, melancholic melody, soft strings, rain sounds in background, very emotional",
-            "surprise": "playful upbeat electronic, sudden drops, quirky synth leads, cartoonish sound effects, fast tempo changes, energetic and fun",
-            "neutral":  "calm ambient chillout, soft pads, gentle arpeggios, peaceful atmosphere, nature sounds, 90 BPM relaxing lo-fi"
+            "angry":    "angry, 100 bpm, C key",
+            "disgust":  "creepy, C minor key",
+            "fear":     "horror movie soundtrack, dark, 100 BPM, C minor key",
+            "happy":    "bright major chords, happy type, 128 BPM C Major",
+            "sad":      "sad, rain sounds in background, emotional, 120 BPM",
+            "surprise": "circus music, 100 BPM, C major chord",
+            "neutral":  "soft and gentle, peaceful atmosphere, nature sounds, 90 BPM, C key"
         }
+        self._set_device()
+        self._load_model_once()
+    def _load_model_once(self):
+        self.synthesiser = pipeline(
+                "text-to-audio",
+                model="facebook/musicgen-small",
+                device=self.device
+            )
+        print("Model loaded successfully")
 
-    def emotion_to_prompt(self, emotion: str) -> str:
-        return self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"])
+    def _set_device(self):
+        if torch.backends.mps.is_available():
+            self.device = 0
+            print("Using Apple Silicon MPS (or MPS-supported device)")
+        else:
+            self.device = -1
+            print("Using CPU")
         
 
-    def generate(self, emotion: str, duration:int = 15) -> bytes:
-        self.prompt = self.emotion_to_prompt(emotion)
-        print(f"emotion 2  prompt done")
-        print(f"Generating music for prompt: {self.prompt}")
-        logger.info(f"Generating {duration}s music → emotion: {emotion}")
+    def emotion_to_prompt(self, emotion: str):
+        style = "only piano"
+        self.prompt = self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"]) +", "+ style
+        
 
-        # 完全不用 .to(device)！device_map="auto" 已經處理好
-        inputs = processor(
-            text=[self.prompt],
-            padding=True,
-            return_tensors="pt"
-        )
+    def generate_music(self, prompt: str, duration: int = 30):
+        print(prompt)
+        print(f"duration = {duration}")
 
-        # 1秒 ≈ 50 tokens（medium/large 模型經驗值）
-        max_new_tokens = max(256, duration * 50)  # 至少 256 避免太短
+        if not prompt:
+            raise ValueError("prompt is empty!")
+        self.prompt = prompt
+
+        if duration > 0:
+            self.duration = duration
+        else:
+            raise ValueError("duration must > 0")
 
         try:
-            with torch.no_grad():
-                audio_values = self.model.generate(
-                    **inputs,
-                    do_sample=True,
-                    guidance_scale=3.5,      # 3.0~5.0，越高越貼 prompt
-                    temperature=0.95,
-                    top_k=250,
-                    max_new_tokens=max_new_tokens,
-                )
-        except torch.cuda.OutOfMemoryError:
-            torch.cuda.empty_cache()
-            logger.error("GPU OOM! 建議降低 duration 或換 small 模型")
-            raise
+            # 隨機 seed (optional, for variation)
+            seed = random.randint(0, 2**32 - 1)
+            torch.manual_seed(seed)
+            if self.device == "cpu":
+                pass  # CPU，不用 cuda 設定 seed
+            # MPS 的 seed 設定由 PyTorch 自己管理
 
-        # 取出音訊並正規化（防止爆音）
-        audio_np = audio_values[0, 0].cpu().numpy().astype("float32")
-        max_val = abs(audio_np).max()
-        if max_val > 0:
-            audio_np = audio_np / max_val * 0.98  # 留一點頭部空間
+            result = self.synthesiser(
+                self.prompt,
+                forward_params={
+                    "do_sample": True,
+                    "max_new_tokens": self.duration * 50
+                }
+            )
+            return result
 
-        # 轉成 16-bit WAV bytes
-        buffer = BytesIO()
-        wavfile.write(buffer, self.sampling_rate, (audio_np * 32767).astype("int16"))
-        wav_bytes = buffer.getvalue()
-        buffer.close()
-
-        logger.info(f"Generated successfully! {len(wav_bytes)/1024:.1f} KB, {duration}s")
-        return wav_bytes
-
+        except Exception as e:
+            traceback.print_exc()
+            raise RuntimeError(f"Error generating music: {e}")
 
         
         # """ Simulate generated generation """
