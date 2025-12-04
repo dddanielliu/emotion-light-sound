@@ -19,6 +19,8 @@ from ..opencv_face import face_detection
 # Load environment variables from .env file
 load_dotenv()
 
+CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,15 +30,16 @@ logger.setLevel(logging.DEBUG)
 CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
 print("CLOUD_SERVER_URL:", CLOUD_SERVER_URL)
 
+
 sio_cloud = socketio.AsyncClient()
 sid_cloud = None
 
 @sio_cloud.event
-async def connect():
+async def connect_cloud():
     logger.info("Connected to Cloud server")
 
 @sio_cloud.event
-async def disconnect():
+async def disconnect_cloud():
     logger.info("Disconnected from Cloud server")
 
 @sio_cloud.on("connected")
@@ -50,6 +53,18 @@ async def music_generated(data):
     """
     Handle receiving music from the cloud.
     """
+    print(f"Received music {data}")
+    # data example:
+    # {
+    #     'file_id': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
+    #     'stage': 'pre', # or 'post'
+    #     'emotion': 'happy',
+    #     'metadata': {
+    #         'timestamp': '2025-11-23T10:44:10.953+00:00',
+    #         ...
+    #     }
+    # }
+
     file_id = data["file_id"]
     params = {
         "owner_id": sid_cloud,
@@ -69,17 +84,6 @@ async def music_generated(data):
     # We emit to all connected clients since we don't track which browser corresponds to which cloud session easily here
     # Ideally, we would map local sid to cloud sid, but for now broadcast is fine for single user
     # print(f"Forwarding music to frontend: {file_id}")
-    print(f"Received music {data}")
-    # data example:
-    # {
-    #     'file_id': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
-    #     'metadata':
-    #         {
-    #             'timestamp': '2025-11-23T10:44:10.953+00:00',
-    #             'emotion_dict': {'pre': 'happy'},
-    #             'prompt': 'generate music based on emotion'
-    #         }
-    # }
     await sio.emit("music_generated", data)
 
 def save_file(filename, data):

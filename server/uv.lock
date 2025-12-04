@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "sys_platform == 'linux' or sys_platform == 'win32'",
@@ -135,7 +135,7 @@ wheels = [
 [[package]]
 name = "cloud-server-api"
 version = "0.1.0"
-source = { virtual = "src/cloud_server_api" }
+source = { editable = "src/cloud_server_api" }
 dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },
@@ -171,8 +171,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cloud-server-api", virtual = "src/cloud_server_api" },
-    { name = "music-gen", virtual = "src/music_gen" },
+    { name = "cloud-server-api", editable = "src/cloud_server_api" },
+    { name = "music-gen", editable = "src/music_gen" },
 ]
 
 [[package]]
@@ -361,7 +361,7 @@ wheels = [
 [[package]]
 name = "music-gen"
 version = "0.1.0"
-source = { virtual = "src/music_gen" }
+source = { editable = "src/music_gen" }
 dependencies = [
     { name = "pydantic" },
     { name = "scipy" },

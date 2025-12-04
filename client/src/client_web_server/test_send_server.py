@@ -46,12 +46,12 @@ async def music_generated(data):
     # data example:
     # {
     #     'file_id': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
-    #     'metadata':
-    #         {
-    #             'timestamp': '2025-11-23T10:44:10.953+00:00',
-    #             'emotion_dict': {'pre': 'happy'},
-    #             'prompt': 'generate music based on emotion'
-    #         }
+    #     'stage': 'pre', # or 'post'
+    #     'emotion': 'happy',
+    #     'metadata': {
+    #         'timestamp': '2025-11-23T10:44:10.953+00:00',
+    #         ...
+    #     }
     # }
 
     file_id = data["file_id"]
@@ -74,13 +74,13 @@ async def music_generated(data):
 
 
 async def send_update():
-    emodict = {"pre": "happy"}
     metadata = {"confidence": 0.95}
 
     await sio_cloud.emit(
         "emotion_update",
         {
-            "emotion_dict": emodict,
+            "stage": "pre",
+            "emotion": "happy",
             "metadata": metadata,
         },
     )

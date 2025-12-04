@@ -44,7 +44,8 @@ class MusicGenerator:
 class InstanceItem(BaseModel):
     sid: Optional[str] = None
     client_id: Optional[str] = None
-    prompt: str
+    stage: str
+    emotion: str
     metadata: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="before")
@@ -72,13 +73,18 @@ class QueueManager:
 
     async def add_item(
         self,
-        prompt: str,
         sid: Optional[str] = None,
         client_id: Optional[str] = None,
+        stage: str = None,
+        emotion: str = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         item = InstanceItem(
-            sid=sid, client_id=client_id, prompt=prompt, metadata=metadata
+            sid=sid,
+            client_id=client_id,
+            stage=stage,
+            emotion=emotion,
+            metadata=metadata,
         )
         await self.queue.put(item)
 
@@ -86,10 +92,10 @@ class QueueManager:
         """Process items in the queue"""
         while True:
             item = await self.queue.get()
-            print(f"Processing prompt: {item.prompt}")
+            print(f"Processing emotion: {item.model_dump()}")
             # Even though we use async, this ensures only one generation at a time
             generated_music = await asyncio.to_thread(
-                self.music_generator.generate, item.prompt
+                self.music_generator.generate, item.emotion
             )
             if item.sid:
                 logger.info(
@@ -97,14 +103,15 @@ class QueueManager:
                 )
                 logger.debug(f"\titem: {item.model_dump()}")
                 metadata = item.metadata if item.metadata else {}
-                metadata["prompt"] = item.prompt
 
                 asyncio.create_task(
                     self.notify_socketio_client_music_generated(
                         event="music_generated",
                         sid=item.sid,
                         music_bytes=generated_music,
-                        metadata=item.metadata,
+                        stage=item.stage,
+                        emotion=item.emotion,
+                        metadata=metadata,
                     )
                 )
 
@@ -117,10 +124,12 @@ class QueueManager:
                     self.create_url(
                         owner_id=item.client_id,
                         music_bytes=generated_music,
+                        stage=item.stage,
+                        emotion=item.emotion,
                         metadata=item.metadata,
                     )
                 )
 
             self.queue.task_done()
 
-            print(f"Finished processing item: {item.prompt}")
+            print(f"Finished processing item: {item.model_dump()}")
