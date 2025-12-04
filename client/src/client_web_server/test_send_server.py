@@ -2,9 +2,13 @@ import asyncio
 import socketio
 import logging
 import os
+from dotenv import load_dotenv
 from urllib.parse import urljoin, urlencode
 import requests
 import datetime
+
+# Load environment variables from .env file
+load_dotenv()
 
 CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
 
