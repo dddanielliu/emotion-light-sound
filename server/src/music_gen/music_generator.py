@@ -37,12 +37,22 @@ class MusicGenerator:
         print("Model loaded successfully")
 
     def _set_device(self):
-        if torch.backends.mps.is_available():
-            self.device = 0
-            print("Using Apple Silicon MPS (or MPS-supported device)")
+        if torch.cuda.is_available():
+            # 1. NVIDIA CUDA GPU
+            self.device = "cuda" # Simplified device string for the first CUDA GPU (cuda:0)
+            print(f"Using NVIDIA CUDA GPU: {self.device}")
+        elif torch.backends.mps.is_available():
+            # 2. Apple MPS (Apple Silicon)
+            self.device = "mps" # PyTorch device string for MPS
+            print(f"Using Apple Silicon MPS: {self.device}")
+        elif torch.backends.hip.is_available():
+            # 3. AMD ROCm GPU
+            self.device = "cuda" # ROCm uses the 'cuda' namespace in PyTorch and 'cuda' is sufficient
+            print(f"Using AMD ROCm GPU: {self.device}")
         else:
-            self.device = -1
-            print("Using CPU")
+            # 4. CPU Fallback
+            self.device = "cpu"
+            print(f"Using CPU: {self.device}")
         
 
     def emotion_to_prompt(self, emotion: str):
