@@ -50,7 +50,7 @@ class MusicGenerator:
         self.prompt = self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"]) +", "+ style
         
 
-    def generate_music(self, prompt: str, duration: int = 30):
+    def generate(self, prompt: str, duration: int = 30) -> bytes:
         print(prompt)
         print(f"duration = {duration}")
 
@@ -107,7 +107,7 @@ class MusicGenerator:
 class InstanceItem(BaseModel):
     sid: Optional[str] = None
     client_id: Optional[str] = None
-    emotion: str                    # 改成 emotion，不是 prompt
+    prompt: str                    # 改成 emotion，不是 prompt
     duration: int = 15
     metadata: Optional[Dict[str, Any]] = None
 
@@ -136,17 +136,17 @@ class QueueManager:
         
     async def add_item(
         self,
-        emotion: str,
-        duration: int = 15,             # ✅ 修正：加逗號，int 放型別註解
-        sid: Optional[str] = None,      # ✅ 加逗號
+        prompt: str,
+        duration: int = 15,             
+        sid: Optional[str] = None,      
         client_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         item = InstanceItem(
             sid=sid,
             client_id=client_id,
-            emotion=emotion,            # ✅ 用 emotion，不是 prompt
-            duration=duration,          # ✅ 傳 duration
+            prompt=prompt,            
+            duration=duration,          
             metadata=metadata
         )
         await self.queue.put(item)
@@ -160,14 +160,14 @@ class QueueManager:
             print(f"Processing emotion: {item.emotion}")
             generated_music = await asyncio.to_thread(
                 self.music_generator.generate,
-                item.emotion,
+                item.prompt,
                 item.duration
             )
             
             # ✅ 正確的 metadata 處理
             metadata = (item.metadata or {}).copy()
             metadata.update({
-                "emotion": item.emotion,
+                "prompt": item.prompt,
                 "duration": item.duration
             })
 
