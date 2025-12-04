@@ -16,7 +16,6 @@ class MusicGenerator:
     def __init__(self):
         self.device = None
         self.synthesiser = None
-        self.prompt = ""
         self.emotion_prompt = {
             "angry":    "E Phrygian, an extremely fast and aggressive rock-like rhythm. Piano hits rapid, low-register clusters. Cello/Viola plays intense, short-bowed bursts. Pounding, repetitive bassline and explosive, heavy percussion, reflecting turmoil.",
             "disgust":  "C Phrygian, extremely fast and aggressive rock music. Features sharp, dissonant low-register piano clusters, heavy tremolo strings, and loud, pounding drum and bass rhythms.",
@@ -55,22 +54,21 @@ class MusicGenerator:
             print(f"Using CPU: {self.device}")
         
 
-    def emotion_to_prompt(self, emotion: str):
+    def emotion_to_prompt(self, emotion: str) -> str:
         inst = "stainway piano, string, drumset, bass"
-        self.prompt = self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"]) +", "+ inst
+        prompt = self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"]) +", "+ inst
+        return prompt
         
 
     def generate(self, emotion: str, duration: int = 30) -> bytes:
-        self.emotion_to_prompt(emotion)
-        print(self.prompt)
+        prompt = emotion_to_prompt(emotion)
+        print(prompt)
         print(f"duration = {duration}")
 
-        if not self.prompt:
+        if not prompt:
             raise ValueError("prompt is empty!")
 
-        if duration > 0:
-            self.duration = duration
-        else:
+        if duration < 0:
             raise ValueError("duration must > 0")
 
         try:
@@ -82,10 +80,10 @@ class MusicGenerator:
             # MPS 的 seed 設定由 PyTorch 自己管理
 
             result = self.synthesiser(
-                self.prompt,
+                prompt,
                 forward_params={
                     "do_sample": True,
-                    "max_new_tokens": self.duration * 50
+                    "max_new_tokens": duration * 50
                 }
             )
             return result
