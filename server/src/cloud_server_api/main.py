@@ -54,7 +54,7 @@ async def send_to_socketio_client(event: str, to: str, **kwargs) -> None:
 
 
 def _save_file_sync(
-    owner_id: str, music_bytes: bytes, metadata: Optional[Dict[str, Any]] = None
+    owner_id: str, music_bytes: bytes, **kwargs
 ) -> tuple[str, str]:
     """
     INTERNAL WORKER: Runs in a separate thread.
@@ -66,10 +66,11 @@ def _save_file_sync(
     # Use owner_id (client_id) in filename to keep things organized
     filename = f"music_{owner_id}_{dt_formatted}.wav"
 
-    metadata_str = ""
-    if metadata:
-        metadata_str = json.dumps(metadata)
-    combined_str = filename + metadata_str
+    kwargs_str = ""
+    
+    for key, value in kwargs.items():
+        kwargs_str += f"{key}:{value},"
+    combined_str = filename + kwargs_str
     url_hash = hashlib.sha256(combined_str.encode()).hexdigest()
 
     output_dir = os.path.join("tmp", "music")
@@ -83,12 +84,12 @@ def _save_file_sync(
 
 
 async def createmusicurl(
-    owner_id: str, music_bytes: bytes, metadata: Optional[Dict[str, Any]] = None
+    owner_id: str, music_bytes: bytes, **kwargs
 ) -> str:
     """Create a temporary URL for the generated music file"""
     print("Creating music URL...")
     url_hash, filepath = await asyncio.to_thread(
-        _save_file_sync, owner_id, music_bytes, metadata
+        _save_file_sync, owner_id, music_bytes, **kwargs
     )
     global music_urls
 
@@ -96,8 +97,8 @@ async def createmusicurl(
         if owner_id not in music_urls:
             music_urls[owner_id] = {}
         music_urls[owner_id][url_hash] = filepath
-        print(f"Music URL created: {url_hash} -> {filepath}")
-        print(f"Current music_urls: {music_urls}")
+        print(f"Music URL created: {url_hash} -> {filepath} for {owner_id}")
+        print(f"Current {owner_id}'s music_urls: {music_urls[owner_id]}")
     return url_hash
 
 
@@ -124,7 +125,7 @@ async def notify_socketio_client_music_generated(
     **kwargs,
 ) -> None:
     url_hash = await createmusicurl(
-        owner_id=sid, music_bytes=music_bytes, metadata=kwargs.get("metadata")
+        owner_id=sid, music_bytes=music_bytes, **kwargs
     )
     await send_to_socketio_client(event=event, to=sid, file_id=url_hash, **kwargs)
 
@@ -190,45 +191,37 @@ async def connect(sid, environ, auth):
 
 
 class EmotionUpdate(BaseModel):
-    emotion_dict: Dict[str, str]
+    stage: str
+    emotion: str
     metadata: Optional[Dict] = None
 
 
 @sio.on("emotion_update")
 async def handle_emotion_update(sid, data):
     update = EmotionUpdate(**data)
-    emotion_dict = update.emotion_dict
-    metadata = update.metadata
-    # client_id = metadata["client_id"]
-    # print(client_id)
+    stage = update.stage
+    emotion = update.emotion
+    metadata = update.metadata if update.metadata else {}
     dt = datetime.now(timezone.utc)
     # Or a custom timezone offset, e.g., UTC+3
     # tz = timezone(timedelta(hours=3))
     # dt = dt.astimezone(tz)
 
     # ISO-8601 format with milliseconds
+    dt = datetime.now(timezone.utc)
     dt_formatted = dt.isoformat(timespec="milliseconds")
-    timestamp = (
-        metadata.get("timestamp") if (metadata and metadata.get("timestamp")) else None
+    timestamp = metadata.get("timestamp", dt_formatted)
+    logger.info(
+        f"Emotion update received at {timestamp}: {stage} {emotion} ({metadata})"
     )
-    if timestamp is None:
-        timestamp = dt_formatted
-    else:
-        # check if timestamp is correct format
-        try:
-            datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        except ValueError:
-            timestamp = dt_formatted
 
-    safe_metadata = metadata.copy()
-    safe_metadata.pop("timestamp", None)
-    safe_metadata.pop("emotion_dict", None)
+    metadata["timestamp"] = dt_formatted
 
-    logger.info(f"Emotion update received at {timestamp}: {emotion_dict}")
     await musicgen_queue.add_item(
-        prompt="generate music based on emotion",
         sid=sid,
-        metadata={"timestamp": timestamp, "emotion_dict": emotion_dict, **safe_metadata},
+        stage=stage,
+        emotion=emotion,
+        metadata=metadata,
     )
 
 
@@ -252,12 +245,12 @@ async def receive_emotion_update(
 ):
     """Receive emotion update via HTTP PUT"""
     # metadata = data.get("metadata", {})
-    # emotion_dict = data.get("emotion_dict", {})
     new_created_client_id = False
     if client_id is None:
         new_created_client_id = True
         client_id = str(uuid.uuid4())
-    emotion_dict = payload.emotion_dict
+    stage = payload.stage
+    emotion = payload.emotion
     metadata = payload.metadata if payload.metadata else {}
     dt = datetime.now(timezone.utc)
     # Or a custom timezone offset, e.g., UTC+3
@@ -268,23 +261,23 @@ async def receive_emotion_update(
     dt_formatted = dt.isoformat(timespec="milliseconds")
     timestamp = metadata.get("timestamp", dt_formatted)
 
-    # return {
-    #     "emotion_dict": payload.emotion_dict,
-    #     "metadata": payload.metadata
-    # }
+    logger.info(
+        f"Emotion update received at {timestamp}: {stage} {emotion} ({metadata})"
+    )
 
-    logger.info(f"Emotion update received at {timestamp}: {emotion_dict}")
+    metadata["timestamp"] = timestamp
+
     await musicgen_queue.add_item(
-        prompt="generate music based on emotion",
         client_id=client_id,
-        metadata={"timestamp": timestamp, "emotion_dict": emotion_dict},
+        stage=stage,
+        emotion=emotion,
+        metadata=metadata,
     )
     if new_created_client_id:
         return {"status": "queued", "client_id": client_id}
     else:
         return {"status": "queued"}
     # Process the emotion update in the background if needed
-    # background_tasks.add_task(process_emotion_update, metadata, emotion_dict)
 
 
 @app.get("/get_music")
