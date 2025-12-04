@@ -5,11 +5,11 @@ import time
 from contextlib import asynccontextmanager
 from urllib.parse import urlencode, urljoin
 
-import requests
+# import requests
 import socketio
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,13 +34,16 @@ print("CLOUD_SERVER_URL:", CLOUD_SERVER_URL)
 sio_cloud = socketio.AsyncClient()
 sid_cloud = None
 
+
 @sio_cloud.event
 async def connect_cloud():
     logger.info("Connected to Cloud server")
 
+
 @sio_cloud.event
 async def disconnect_cloud():
     logger.info("Disconnected from Cloud server")
+
 
 @sio_cloud.on("connected")
 async def handle_set_sid_cloud(data):
@@ -48,12 +51,12 @@ async def handle_set_sid_cloud(data):
     sid_cloud = data["sid"]
     logger.info("Set sid to %s", sid_cloud)
 
+
 @sio_cloud.on("music_generated")
 async def music_generated(data):
     """
     Handle receiving music from the cloud.
     """
-    print(f"Received music {data}")
     # data example:
     # {
     #     'file_id': 'f92fd34d99718d9b6c51bff9ff96e0a6d36e3718738b4492746b9ce0b51c6693',
@@ -66,11 +69,8 @@ async def music_generated(data):
     # }
 
     file_id = data["file_id"]
-    params = {
-        "owner_id": sid_cloud,
-        "file_id": file_id
-    }
-    url = urljoin(CLOUD_SERVER_URL, "get_music") + '?' + urlencode(params)
+    params = {"owner_id": sid_cloud, "file_id": file_id}
+    url = urljoin(CLOUD_SERVER_URL, "get_music") + "?" + urlencode(params)
 
     # get the music from server
     # music_bytes = requests.get(url).content
@@ -84,11 +84,14 @@ async def music_generated(data):
     # We emit to all connected clients since we don't track which browser corresponds to which cloud session easily here
     # Ideally, we would map local sid to cloud sid, but for now broadcast is fine for single user
     # print(f"Forwarding music to frontend: {file_id}")
+    print(f"Received music {data}")
     await sio.emit("music_generated", data)
+
 
 def save_file(filename, data):
     with open(filename, "wb") as f:
         f.write(data)
+
 
 async def keep_alive():
     """Background task to keep the connection alive"""
@@ -97,12 +100,14 @@ async def keep_alive():
         await sio_cloud.emit("ping")
         await asyncio.sleep(25)
 
-async def send_emotion_update(emotion_dict, metadata):
+
+async def send_emotion_update(stage, emotion, metadata):
     """
     Send emotion update to cloud server.
-    
+
     Args:
-        emotion_dict: dict with "pre" or "post" key and emotion value
+        stage: "pre" or "post"
+        emotion: emotion string (e.g. "happy")
         metadata: dict with "confidence" key
     """
     try:
@@ -110,34 +115,42 @@ async def send_emotion_update(emotion_dict, metadata):
             await sio_cloud.emit(
                 "emotion_update",
                 {
-                    "emotion_dict": emotion_dict,
+                    "stage": stage,
+                    "emotion": emotion,
                     "metadata": metadata,
                 },
             )
-            emotion_type = "pre" if "pre" in emotion_dict else "post"
-            emotion_value = emotion_dict.get("pre") or emotion_dict.get("post")
-            logger.info(f"✉️  Sent emotion_update [{emotion_type}]: {emotion_value} (confidence: {metadata.get('confidence', 0):.2f})")
-            print(f"✉️  Sent emotion_update [{emotion_type}]: {emotion_value} (confidence: {metadata.get('confidence', 0):.2f})")
+            logger.info(
+                f"✉️  Sent emotion_update [{stage}]: {emotion} (confidence: {metadata.get('confidence', 0):.2f})"
+            )
+            print(
+                f"✉️  Sent emotion_update [{stage}]: {emotion} (confidence: {metadata.get('confidence', 0):.2f})"
+            )
         else:
-            logger.debug(f"⚠️  Cloud server not connected (connected={sio_cloud.connected}, sid={sid_cloud}), skipping emotion update")
+            logger.debug(
+                f"⚠️  Cloud server not connected (connected={sio_cloud.connected}, sid={sid_cloud}), skipping emotion update"
+            )
     except Exception as e:
         logger.error(f"Error sending emotion update: {e}")
+
 
 # Application startup and shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting lifespan...")
-    
+
     # Check if CLOUD_SERVER_URL is set
     if CLOUD_SERVER_URL:
         logger.info(f"CLOUD_SERVER_URL is set to: {CLOUD_SERVER_URL}")
         # Connect to Cloud Server on startup
         try:
-            logger.info(f"Attempting to connect to cloud server at {CLOUD_SERVER_URL}...")
+            logger.info(
+                f"Attempting to connect to cloud server at {CLOUD_SERVER_URL}..."
+            )
             await sio_cloud.connect(CLOUD_SERVER_URL)
             logger.info("✅ Connected to cloud server successfully!")
             asyncio.create_task(keep_alive())
-            
+
             # Register emotion update callback with the main event loop
             loop = asyncio.get_running_loop()
             face_detection.set_emotion_update_callback(send_emotion_update, loop)
@@ -147,13 +160,16 @@ async def lifespan(app: FastAPI):
             logger.error(f"Emotion updates will NOT be sent to cloud server")
     else:
         logger.warning("⚠️  CLOUD_SERVER_URL not set, skipping cloud server connection")
-        logger.warning("Set CLOUD_SERVER_URL environment variable to enable cloud features")
+        logger.warning(
+            "Set CLOUD_SERVER_URL environment variable to enable cloud features"
+        )
 
     yield
 
     # Cleanup on shutdown
     if sio_cloud.connected:
         await sio_cloud.disconnect()
+
 
 # Create SocketIO server
 sio = socketio.AsyncServer(
@@ -183,7 +199,9 @@ app.add_middleware(
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 print("Frontend path:", frontend_path)
 if os.path.exists(frontend_path):
-    app.mount("/js", StaticFiles(directory=os.path.join(frontend_path,"js")), name="js")
+    app.mount(
+        "/js", StaticFiles(directory=os.path.join(frontend_path, "js")), name="js"
+    )
 
 # Mount SocketIO, wrap both applications together and route traffic to them
 app.mount("/socket.io", socketio.ASGIApp(sio, app))
@@ -194,7 +212,9 @@ async def connect(sid, environ, auth):
     # logger.info(f"Client connected: {sid}, auth: {auth}")
     # await connection_manager.add_connection(sid)
     client_id = str(auth.get("client_id"))
-    logger.info("Client %s connected with session ID %s (auth: %s)", client_id, sid, auth)
+    logger.info(
+        "Client %s connected with session ID %s (auth: %s)", client_id, sid, auth
+    )
 
 
 @sio.on("video_frame")
@@ -228,7 +248,7 @@ async def handle_video_frame(sid, metadata, blob):
         "original_timestamp": timestamp,
         "width": width,
         "height": height,
-        "emotion": emotion
+        "emotion": emotion,
     }
     await sio.emit(reply_event, data=(reply_metadata, processed_image), to=sid)
 
@@ -241,6 +261,7 @@ async def serve_index(request: Request):
         return FileResponse(index_path)
     return {"message": "server is running"}
 
+
 # @app.get("/js/{js_file}")
 # async def serve_js(js_file: str):
 #     """Serve main page"""
@@ -249,7 +270,6 @@ async def serve_index(request: Request):
 #     if os.path.exists(js_path):
 #         return FileResponse(js_path)
 #     return {"message": "server is running"}
-
 
 
 @app.get("/health")
@@ -270,6 +290,7 @@ def main():
         module_path = "main:app"
 
     uvicorn.run(module_path, host="0.0.0.0", port=8000, log_level="info", reload=False)
+
 
 if __name__ == "__main__":
     main()
