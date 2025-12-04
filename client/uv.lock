@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -295,7 +295,7 @@ wheels = [
 [[package]]
 name = "client-web-server"
 version = "0.1.0"
-source = { virtual = "src/client_web_server" }
+source = { editable = "src/client_web_server" }
 dependencies = [
     { name = "aiohttp" },
     { name = "fastapi" },
@@ -310,7 +310,7 @@ dependencies = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.2" },
     { name = "fastapi", specifier = ">=0.121.3" },
-    { name = "opencv-face", virtual = "src/opencv_face" },
+    { name = "opencv-face", editable = "src/opencv_face" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-socketio", specifier = ">=5.14.3" },
     { name = "requests", specifier = ">=2.31.0" },
@@ -363,8 +363,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "client-web-server", virtual = "src/client_web_server" },
-    { name = "opencv-face", virtual = "src/opencv_face" },
+    { name = "client-web-server", editable = "src/client_web_server" },
+    { name = "opencv-face", editable = "src/opencv_face" },
 ]
 
 [[package]]
@@ -1070,7 +1070,7 @@ wheels = [
 [[package]]
 name = "opencv-face"
 version = "0.1.0"
-source = { virtual = "src/opencv_face" }
+source = { editable = "src/opencv_face" }
 dependencies = [
     { name = "deepface" },
     { name = "numpy" },

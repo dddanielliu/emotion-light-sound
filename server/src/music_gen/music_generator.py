@@ -1,8 +1,11 @@
 import asyncio
 import logging
 from typing import Any, Callable, Dict, Optional
-
 from pydantic import BaseModel, ValidationError, model_validator
+from transformers import pipeline
+import torch
+import random
+import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,34 +14,95 @@ logger.setLevel(logging.DEBUG)
 
 class MusicGenerator:
     def __init__(self):
-        """Initialize the music generator model here"""
-        self.model = None
+        self.device = None
+        self.synthesiser = None
+        self.prompt = ""
+        self.emotion_prompt = {
+            "angry":    "E Phrygian, an extremely fast and aggressive rock-like rhythm. Piano hits rapid, low-register clusters. Cello/Viola plays intense, short-bowed bursts. Pounding, repetitive bassline and explosive, heavy percussion, reflecting turmoil.",
+            "disgust":  "C Phrygian, extremely fast and aggressive rock music. Features sharp, dissonant low-register piano clusters, heavy tremolo strings, and loud, pounding drum and bass rhythms.",
+            "fear":     "C Locrian, a slow, deeply unsettling and suspenseful atmosphere. Uses sustained, quiet, and highly dissonant piano notes, low-register string drones, and sparse, irregular bass drum hits.",
+            "happy":    "G Major, a bright and uplifting up-tempo track that gradually builds energy. The piano uses high, staccato chords. Cello/Viola takes a joyful, counter-melody role. Driving electric bass and bright, accented percussion.",
+            "sad":      "G Major, a bright and uplifting up-tempo track that gradually builds energy. The piano uses high, staccato chords. Cello/Viola takes a joyful, counter-melody role. Driving electric bass and bright, accented percussion.",
+            "surprise": "A Minor transitioning to A Major, a dramatic musical event with a sudden, sharp dynamic shift. Begins quietly with sparse, low piano notes and high-tension cello tremolo, then explodes into a loud, fast bass and drum sequence, ending with a sudden, loud strike.",
+            "neutral":  "F Ionian, a warm and steady mid-tempo ambient piece. The piano plays a simple, repetitive arpeggio pattern. Cello/Viola section provides a smooth, sustained backdrop. Gentle electric bassline and minimal percussion. Suitable for a flowing transition."
+        }
+        self._set_device()
+        self._load_model_once()
+    def _load_model_once(self):
+        self.synthesiser = pipeline(
+                "text-to-audio",
+                model="facebook/musicgen-small",
+                device=self.device
+            )
+        print("Model loaded successfully")
 
-    def generate(self, prompt: str) -> bytes:
-        # Generate music based on the prompt
-        print(f"Generating music for prompt: {prompt}")
+    def _set_device(self):
+        if torch.backends.mps.is_available():
+            self.device = 0
+            print("Using Apple Silicon MPS (or MPS-supported device)")
+        else:
+            self.device = -1
+            print("Using CPU")
+        
 
+    def emotion_to_prompt(self, emotion: str):
+        inst = "stainway piano, string, drumset, bass"
+        self.prompt = self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"]) +", "+ inst
+        
 
-        """ Simulate generated generation """
-        import time
-        time.sleep(2)  # Simulate time-consuming generation
-        print(f"Finished generating music for prompt: {prompt}")
-        import os
-        import random
+    def generate(self, prompt: str, duration: int = 30) -> bytes:
+        print(prompt)
+        print(f"duration = {duration}")
+
+        if not prompt:
+            raise ValueError("prompt is empty!")
+        self.prompt = prompt
+
+        if duration > 0:
+            self.duration = duration
+        else:
+            raise ValueError("duration must > 0")
+
         try:
-            files = os.listdir("test_musics")
-            if len(files) == 0:
-                raise Exception("No test music files found")
-            file = random.choice(files)
-            # read the file to bytes
-            with open(os.path.join("test_musics", file), "rb") as f:
-                music_bytes = f.read()
-            return music_bytes
-        except Exception as e:
-            print("fake generation failed:", e)
-            return b""
+            # 隨機 seed (optional, for variation)
+            seed = random.randint(0, 2**32 - 1)
+            torch.manual_seed(seed)
+            if self.device == "cpu":
+                pass  # CPU，不用 cuda 設定 seed
+            # MPS 的 seed 設定由 PyTorch 自己管理
 
-        return b""  # Placeholder for generated music bytes
+            result = self.synthesiser(
+                self.prompt,
+                forward_params={
+                    "do_sample": True,
+                    "max_new_tokens": self.duration * 50
+                }
+            )
+            return result
+
+        except Exception as e:
+            traceback.print_exc()
+            raise RuntimeError(f"Error generating music: {e}")
+
+        
+        # """ Simulate generated generation """
+        # import time
+        # time.sleep(2)  # Simulate time-consuming generation
+        # print(f"Finished generating music for prompt: {prompt}")
+        # import os
+        # import random
+        # try:
+        #     files = os.listdir("test_musics")
+        #     if len(files) == 0:
+        #         raise Exception("No test music files found")
+        #     file = random.choice(files)
+        #     # read the file to bytes
+        #     with open(os.path.join("test_musics", file), "rb") as f:
+        #         music_bytes = f.read()
+        #     return music_bytes
+        # except Exception as e:
+        #     print("fake generation failed:", e)
+        #     return b""
 
 
 class InstanceItem(BaseModel):
