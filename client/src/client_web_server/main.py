@@ -8,6 +8,7 @@ from urllib.parse import urlencode, urljoin
 import requests
 import socketio
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -15,12 +16,20 @@ from fastapi.staticfiles import StaticFiles
 
 from ..opencv_face import face_detection
 
+# Load environment variables from .env file
+load_dotenv()
+
 CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+# Get cloud server URL from environment
+CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
+print("CLOUD_SERVER_URL:", CLOUD_SERVER_URL)
+
 
 sio_cloud = socketio.AsyncClient()
 sid_cloud = None
@@ -64,11 +73,18 @@ async def music_generated(data):
     url = urljoin(CLOUD_SERVER_URL, "get_music") + '?' + urlencode(params)
 
     # get the music from server
-    music_bytes = requests.get(url).content
+    # music_bytes = requests.get(url).content
     # with open("music.wav", "wb") as f:
     #     f.write(music_bytes)
 
-    # TODO: Play the music in frontend
+    # Add URL to data so frontend can play it
+    data["url"] = url
+
+    # Forward the music event to the frontend (browser)
+    # We emit to all connected clients since we don't track which browser corresponds to which cloud session easily here
+    # Ideally, we would map local sid to cloud sid, but for now broadcast is fine for single user
+    # print(f"Forwarding music to frontend: {file_id}")
+    await sio.emit("music_generated", data)
 
 def save_file(filename, data):
     with open(filename, "wb") as f:
@@ -81,20 +97,57 @@ async def keep_alive():
         await sio_cloud.emit("ping")
         await asyncio.sleep(25)
 
+async def send_emotion_update(emotion_dict, metadata):
+    """
+    Send emotion update to cloud server.
+    
+    Args:
+        emotion_dict: dict with "pre" or "post" key and emotion value
+        metadata: dict with "confidence" key
+    """
+    try:
+        if sio_cloud.connected and sid_cloud:
+            await sio_cloud.emit(
+                "emotion_update",
+                {
+                    "emotion_dict": emotion_dict,
+                    "metadata": metadata,
+                },
+            )
+            emotion_type = "pre" if "pre" in emotion_dict else "post"
+            emotion_value = emotion_dict.get("pre") or emotion_dict.get("post")
+            logger.info(f"✉️  Sent emotion_update [{emotion_type}]: {emotion_value} (confidence: {metadata.get('confidence', 0):.2f})")
+            print(f"✉️  Sent emotion_update [{emotion_type}]: {emotion_value} (confidence: {metadata.get('confidence', 0):.2f})")
+        else:
+            logger.debug(f"⚠️  Cloud server not connected (connected={sio_cloud.connected}, sid={sid_cloud}), skipping emotion update")
+    except Exception as e:
+        logger.error(f"Error sending emotion update: {e}")
+
 # Application startup and shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting lifespan...")
     
-    # Connect to Cloud Server on startup
-    try:
-        await sio_cloud.connect(CLOUD_SERVER_URL)
-        logger.info("Connected to cloud server at %s", CLOUD_SERVER_URL)
-        asyncio.create_task(keep_alive())
-    except Exception as e:
-        logger.error(f"Failed to connect to cloud server: {e}")
-
-    yield
+    # Check if CLOUD_SERVER_URL is set
+    if CLOUD_SERVER_URL:
+        logger.info(f"CLOUD_SERVER_URL is set to: {CLOUD_SERVER_URL}")
+        # Connect to Cloud Server on startup
+        try:
+            logger.info(f"Attempting to connect to cloud server at {CLOUD_SERVER_URL}...")
+            await sio_cloud.connect(CLOUD_SERVER_URL)
+            logger.info("✅ Connected to cloud server successfully!")
+            asyncio.create_task(keep_alive())
+            
+            # Register emotion update callback with the main event loop
+            loop = asyncio.get_running_loop()
+            face_detection.set_emotion_update_callback(send_emotion_update, loop)
+            logger.info("✅ Registered emotion update callback")
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to cloud server: {e}")
+            logger.error(f"Emotion updates will NOT be sent to cloud server")
+    else:
+        logger.warning("⚠️  CLOUD_SERVER_URL not set, skipping cloud server connection")
+        logger.warning("Set CLOUD_SERVER_URL environment variable to enable cloud features")
 
     yield
 

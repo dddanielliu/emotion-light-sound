@@ -20,7 +20,43 @@ This module (`opencv_face`) provides robust face detection and real-time emotion
 - **Smoothing Mechanism**:
     - Implements a **Sliding Window** approach using a buffer (deque) of size 10.
     - Calculates the **Mode** (most frequent emotion) from the buffer to determine the displayed emotion.
-    - effectively stabilizes the output, preventing rapid flickering between different emotions.
+    - Effectively stabilizes the output, preventing rapid flickering between different emotions.
+
+### 3. Frame Skipping for Real-time Performance
+- **Problem**: When DeepFace processing time exceeds the frame arrival rate, frames accumulate in the queue, causing increasing lag.
+- **Solution**: Implements a **frame skipping mechanism** to maintain real-time responsiveness:
+    - **Global State Management**:
+        - `is_processing`: Boolean flag indicating if DeepFace is currently processing
+        - `latest_frame_bytes`: Stores the most recent frame received
+        - `last_processed_image` & `last_emotion_result`: Cached results from the last successful processing
+    - **Logic**:
+        1. Every incoming frame updates `latest_frame_bytes` (always stores the newest frame)
+        2. If `is_processing == True`: Return cached results immediately (skips the frame)
+        3. If `is_processing == False`: Process the latest frame from `latest_frame_bytes`
+        4. After processing completes, `is_processing` is reset via `finally` block
+    - **Benefits**:
+        - ✅ No frame queue accumulation
+        - ✅ Always processes the most recent frame (avoids processing stale frames)
+        - ✅ Maintains real-time responsiveness
+        - ✅ Automatically adapts to varying processing speeds
+
+### 4. Performance Monitoring
+- **Detailed Logging**: Each frame processing outputs timing statistics and frame status:
+    ```
+    🔄 START PROCESSING - Frame entered at 1764211710.069
+    Raw: happy      | Smoothed: neutral    | Buffer: ['neutral', 'neutral', 'happy', ...]
+    ✅ PROCESSING COMPLETE - Total: 0.039s | DeepFace: 0.039s | Result: neutral
+    ```
+    Or when a frame is skipped:
+    ```
+    ⏭️  FRAME SKIPPED - DeepFace busy, returning cached result
+    ```
+- **Metrics**:
+    - **Total**: Time from frame entry to result return
+    - **DeepFace**: Pure DeepFace processing time
+    - **Raw**: Current frame's detected emotion
+    - **Smoothed**: Mode of the last 10 processed frames (final output)
+    - **Buffer**: Complete history of the last 10 emotions
 
 ## Dependencies
 - `opencv-python`: For image processing and face detection.
