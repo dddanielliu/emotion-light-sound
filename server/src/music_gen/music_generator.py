@@ -164,7 +164,7 @@ class QueueManager:
         """Process items in the queue"""
         while True:
             item = await self.queue.get()
-            print(f"Processing emotion: {item.model_dump()}")
+            logger.info(f"Processing emotion: {item.model_dump()}")
             # Even though we use async, this ensures only one generation at a time
             generated_music = await asyncio.to_thread(
                 self.music_generator.generate, item.emotion
@@ -204,4 +204,4 @@ class QueueManager:
 
             self.queue.task_done()
 
-            print(f"Finished processing item: {item.model_dump()}")
+            logger.info(f"Finished processing item: {item.model_dump()}")
