@@ -33,7 +33,7 @@ class MusicGenerator:
         self.synthesiser = pipeline(
             "text-to-audio", model="facebook/musicgen-small", device=self.device
         )
-        logging.info("Model loaded successfully")
+        logger.info("Model loaded successfully")
 
     def _set_device(self):
         if torch.cuda.is_available():
@@ -41,19 +41,19 @@ class MusicGenerator:
             self.device = (
                 "cuda"  # Simplified device string for the first CUDA GPU (cuda:0)
             )
-            logging.info(f"Using NVIDIA CUDA GPU: {self.device}")
+            logger.info(f"Using NVIDIA CUDA GPU: {self.device}")
         elif torch.backends.mps.is_available():
             # 2. Apple MPS (Apple Silicon)
             self.device = "mps"  # PyTorch device string for MPS
-            logging.info(f"Using Apple Silicon MPS: {self.device}")
+            logger.info(f"Using Apple Silicon MPS: {self.device}")
         elif torch.backends.hip.is_available():
             # 3. AMD ROCm GPU
             self.device = "cuda"  # ROCm uses the 'cuda' namespace in PyTorch and 'cuda' is sufficient
-            logging.info(f"Using AMD ROCm GPU: {self.device}")
+            logger.info(f"Using AMD ROCm GPU: {self.device}")
         else:
             # 4. CPU Fallback
             self.device = "cpu"
-            logging.info(f"Using CPU: {self.device}")
+            logger.info(f"Using CPU: {self.device}")
 
     def emotion_to_prompt(self, emotion: str) -> str:
         inst = "stainway piano, string, drumset, bass"
@@ -66,8 +66,8 @@ class MusicGenerator:
 
     def generate(self, emotion: str, duration: int = 30) -> bytes:
         prompt = self.emotion_to_prompt(emotion)
-        logging.info(prompt)
-        logging.info(f"duration = {duration}")
+        logger.info(prompt)
+        logger.info(f"duration = {duration}")
 
         if not prompt:
             raise ValueError("prompt is empty!")
@@ -96,7 +96,7 @@ class MusicGenerator:
         # """ Simulate generated generation """
         # import time
         # time.sleep(2)  # Simulate time-consuming generation
-        # logging.info(f"Finished generating music for prompt: {prompt}")
+        # logger.info(f"Finished generating music for prompt: {prompt}")
         # import os
         # import random
         # try:
@@ -109,7 +109,7 @@ class MusicGenerator:
         #         music_bytes = f.read()
         #     return music_bytes
         # except Exception as e:
-        #     logging.info("fake generation failed:", e)
+        #     logger.info("fake generation failed:", e)
         #     return b""
 
 
