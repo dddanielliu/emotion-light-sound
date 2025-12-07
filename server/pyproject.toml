@@ -1,0 +1,20 @@
+[project]
+name = "emotion-light-sound-client"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cloud_server_api",
+    "music_gen",
+]
+
+[tool.uv.sources]
+cloud_server_api = { workspace = true }
+music_gen = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+    "src/cloud_server_api",
+    "src/music_gen",
+]
