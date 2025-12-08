@@ -109,11 +109,11 @@ def main():
             time.sleep(random_delay)
 
     except serial.SerialException as e:
-        print(f"\nError: Could not open serial port.")
-        print(f"Please ensure:")
-        print(f"  1. The Arduino is connected to your computer.")
-        print(f"  2. The selected port is correct.")
-        print(f"  3. The Arduino IDE Serial Monitor is closed (only one program can access the port at a time).")
+        print("\nError: Could not open serial port.")
+        print("Please ensure:")
+        print("  1. The Arduino is connected to your computer.")
+        print("  2. The selected port is correct.")
+        print("  3. The Arduino IDE Serial Monitor is closed (only one program can access the port at a time).")
         print(f"Details: {e}")
     except KeyboardInterrupt:
         print("\nProgram terminated by user (Ctrl+C).")
