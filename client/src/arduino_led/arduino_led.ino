@@ -1,94 +1,143 @@
 #include <FastLED.h>
+#include <WString.h> // For String class, though often included by default
 
 // --- 燈條定義 ---
 #define NUM_LEDS 432     // PIN 6 漸變燈條的 LED 數量
 #define DATA_PIN 6      // PIN 6 (漸變燈條)
 
-#define GRADIENT_SPEED 200 
-
 // --- CRGB 陣列定義 ---
-CRGB leds[NUM_LEDS];       // PIN 6 (漸變燈條)
+CRGB leds[NUM_LEDS];
 
-unsigned char R = 255;
-unsigned char G = 0;
-unsigned char B = 0;
+// Define emotion colors as constants
+const CRGB COLOR_ANGRY = CRGB(255, 0, 0);       // Red
+const CRGB COLOR_FEAR = CRGB(128, 0, 128);      // Purple
+const CRGB COLOR_NEUTRAL = CRGB(255, 255, 255); // White
+const CRGB COLOR_SAD = CRGB(0, 0, 255);         // Blue
+const CRGB COLOR_DISGUST = CRGB(0, 255, 0);     // Green
+const CRGB COLOR_HAPPY = CRGB(255, 255, 0);     // Yellow
+const CRGB COLOR_SURPRISE = CRGB(255, 165, 0);  // Orange
 
-// PIN 6 漸變邏輯
-bool reverseGradient = true; 
-static int phase = 0; 
-static int pos = 0;   
-static int reversePhase = 0; 
-
+// Global variables for color transition
+CRGB currentColor = COLOR_NEUTRAL; // Start with neutral
+CRGB targetColor = COLOR_NEUTRAL;
+CRGB startColor = COLOR_NEUTRAL;
+unsigned long transitionStartTime = 0;
+const unsigned long transitionDuration = 1500; // 1.5 seconds (1500 milliseconds)
 
 void setup() {
   // --- 註冊所有 LED 燈條 ---
-  // PIN 6: 漸變燈條 (使用原始 leds 陣列)
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS); 
-  
-  FastLED.setBrightness(255); 
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+  FastLED.setBrightness(255); // Set maximum brightness
+
+  Serial.begin(115200); // Initialize serial communication at 115200 baud
+  Serial.setTimeout(2000); // Set a timeout of 2000ms for serial reading functions
+  while (!Serial) { 
+    ; // Wait for serial port to connect. Needed for native USB port only
+  }
+
+  // Initialize all LEDs to the neutral color
+  fill_solid(leds, NUM_LEDS, currentColor);
+  FastLED.show();
 }
 
 void loop() {
-  
-  // 設置當前顏色 (用於 PIN 6)
-  CRGB currentColor;
+  // Handle incoming serial data
+  if (Serial.available()) {
+    String emotion = Serial.readStringUntil('\n');
+    emotion.trim(); // Remove any leading/trailing whitespace
 
-  // --- PIN 6 漸變邏輯 (與您原始程式碼相同) ---
-  if (reverseGradient) {
-    // === 實作 Red -> Blue -> Green -> Yellow -> Red 順序 ===
-    
-    pos += 1; 
-    if (pos > 255) {
-      pos = 0;
-      reversePhase = (reversePhase + 1) % 4;
+    // Convert emotion to lowercase for case-insensitive matching
+    emotion.toLowerCase();
+
+    // Determine targetColor based on emotion string using if-else if
+    CRGB newTargetColor;
+    bool emotionRecognized = true;
+
+    if (emotion == "angry") {
+      newTargetColor = COLOR_ANGRY; // Red
+    } else if (emotion == "fear") {
+      newTargetColor = COLOR_FEAR; // Purple
+    } else if (emotion == "neutral") {
+      newTargetColor = COLOR_NEUTRAL; // White
+    } else if (emotion == "sad") {
+      newTargetColor = COLOR_SAD; // Blue
+    } else if (emotion == "disgust") {
+      newTargetColor = COLOR_DISGUST; // Green
+    } else if (emotion == "happy") {
+      newTargetColor = COLOR_HAPPY; // Yellow
+    } else if (emotion == "surprise") {
+      newTargetColor = COLOR_SURPRISE; // Orange
+    } else {
+      Serial.print("Unknown emotion received: ");
+      Serial.println(emotion);
+      // try to use partual data to guess the emotion
+      if (emotion[0] == 'a') {
+        newTargetColor = COLOR_ANGRY; // Red
+        Serial.println("guessed from partial: angry");
+      }
+      else if (emotion[0] == 'f') {
+        newTargetColor = COLOR_FEAR; // Purple
+        Serial.println("guessed from partial: fear");
+      }
+      else if (emotion[0] == 'n') {
+        newTargetColor = COLOR_NEUTRAL; // White
+        Serial.println("guessed from partial: neutral");
+      }
+      else if (emotion[0] == 's') {
+        if (emotion.length() > 1 && emotion[1] == 'a') {
+          newTargetColor = COLOR_SAD; // Blue
+          Serial.println("guessed from partial: sad");
+        }
+        else if (emotion.length() > 1 && emotion[1] == 'u') {
+          newTargetColor = COLOR_SURPRISE;
+          Serial.println("guessed from partial: surprise");
+        }
+      }
+      else if (emotion[0] == 'd') {
+        newTargetColor = COLOR_DISGUST; // Green
+        Serial.println("guessed from partial: disgust");
+      }
+      else if (emotion[0] == 'h') {
+        newTargetColor = COLOR_HAPPY; // Yellow
+        Serial.println("guessed from partial: happy");
+      }
+      else {
+        emotionRecognized = false;
+      }
     }
 
-    R = 0; G = 0; B = 0; 
-
-    if (reversePhase == 0) { // Red -> Blue (R 減 B 增)
-      R = 255 - pos;
-      B = pos;
-    } 
-    else if (reversePhase == 1) { // Blue -> Green (B 減 G 增)
-      B = 255 - pos;
-      G = pos;
+    if (emotionRecognized) {
+      // A new valid emotion is received, start a new transition
+      startColor = currentColor; // Current color becomes the start of the new transition
+      targetColor = newTargetColor;
+      transitionStartTime = millis(); // Reset the transition timer
+      Serial.print("Received: "); // Echo back the received emotion
+      Serial.println(emotion);
     }
-    else if (reversePhase == 2) { // Green -> Yellow (G 保持 R 增)
-      G = 255;
-      R = pos;
-    }
-    else if (reversePhase == 3) { // Yellow -> Red (R 保持 G 減)
-      R = 255;
-      G = 255 - pos;
-    }
-    
-    currentColor = CRGB(R, G, B);
-
-  } else {
-    // === 實作標準 Red -> Yellow -> Green 順序 ===
-    
-    pos += 1; 
-    if (pos > 255) {
-      pos = 0;
-      phase = (phase + 1) % 6;
-    }
-    
-    R = 0; G = 0; B = 0; 
-    
-    if (phase == 0) { R=255; G=pos; }        // R->Y
-    else if (phase == 1) { G=255; R=255-pos; } // Y->G
-    else if (phase == 2) { G=255; B=pos; }    // G->C
-    else if (phase == 3) { B=255; G=255-pos; } // C->B
-    else if (phase == 4) { B=255; R=pos; }    // B->M
-    else if (phase == 5) { R=255; B=255-pos; } // M->R
-    
-    currentColor = CRGB(R, G, B);
   }
 
-  // --- 顯示 PIN 6 漸變顏色 ---
+  // Handle color transition
+  unsigned long currentTime = millis();
+  unsigned long elapsedTime = currentTime - transitionStartTime;
+
+  if (elapsedTime < transitionDuration) {
+    // Transition is active
+    // Calculate progress as a float from 0.0 to 1.0
+    float progress = (float)elapsedTime / transitionDuration;
+    // FastLED's blend function takes fract8 (0-255) for amount
+    currentColor = blend(startColor, targetColor, (uint8_t)(progress * 255));
+  } else {
+    // Transition is complete or not active, ensure we are at the target color
+    currentColor = targetColor;
+  }
+
+  // Update all LEDs with the current color
   fill_solid(leds, NUM_LEDS, currentColor);
-  
-  // 呼叫 show() 會更新所有已註冊的燈條
+
+  // Show the updated colors on the LED strip
   FastLED.show();
-  delay(GRADIENT_SPEED); 
+
+  // Small delay to prevent busy-waiting and allow serial buffer to fill
+  // and other background tasks to run. Adjust as needed.
+  delay(10);
 }

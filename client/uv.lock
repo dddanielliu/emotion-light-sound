@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "arduino-led",
     "client-web-server",
     "emotion-light-sound-client",
     "opencv-face",
@@ -160,6 +161,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/c6/78/7d432127c41b50bcc
 wheels = [
     { url = "https://files.pythonhosted.org/packages/15/b3/9b1a8074496371342ec1e796a96f99c82c945a339cd81a8e73de28b4cf9e/anyio-4.11.0-py3-none-any.whl", hash = "sha256:0287e96f4d26d4149305414d4e3bc32f0dcd0862365a4bddea19d7a1ec38c4fc", size = 109097, upload-time = "2025-09-23T09:19:10.601Z" },
 ]
+
+[[package]]
+name = "arduino-led"
+version = "0.1.0"
+source = { editable = "src/arduino_led" }
+dependencies = [
+    { name = "pyserial" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyserial", specifier = ">=3.5" }]
 
 [[package]]
 name = "astunparse"
@@ -357,12 +369,14 @@ name = "emotion-light-sound-client"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "arduino-led" },
     { name = "client-web-server" },
     { name = "opencv-face" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "arduino-led", editable = "src/arduino_led" },
     { name = "client-web-server", editable = "src/client_web_server" },
     { name = "opencv-face", editable = "src/opencv_face" },
 ]
@@ -1503,6 +1517,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pyserial"
+version = "3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz", hash = "sha256:3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb", size = 159125, upload-time = "2020-11-23T03:59:15.045Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl", hash = "sha256:c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0", size = 90585, upload-time = "2020-11-23T03:59:13.41Z" },
 ]
 
 [[package]]
