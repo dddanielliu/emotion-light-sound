@@ -1,131 +1,160 @@
-import serial
-import time
+import logging
 import random
-import serial.tools.list_ports # Import for port listing
-import threading # Import for multi-threading
+import threading
+import time
 
-# --- Configuration ---
-BAUD_RATE = 115200
+import serial
+import serial.tools.list_ports
 
-# List of emotions to send
-EMOTIONS = [
-    "angry",
-    "fear",
-    "neutral",
-    "sad",
-    "disgust",
-    "happy",
-    "surprise"
-]
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-# Flag to control the serial reading thread
-stop_reading_thread = False
 
-def send_emotion(ser_connection, emotion_to_send):
-    """Sends an emotion string over the serial connection."""
-    try:
-        # Encode the string and add a newline character as expected by Arduino
-        ser_connection.write(f"{emotion_to_send}\n".encode('utf-8'))
-        print(f"Sent: '{emotion_to_send}'")
-    except serial.SerialException as e:
-        print(f"Error sending data: {e}")
-        # Attempt to re-establish connection or exit
-        raise
+class ArduinoLEDController:
+    def __init__(self):
+        self.ser = None
+        self.reading_thread = None
+        self.stop_reading_thread = False
+        self.BAUD_RATE = 115200
+        self.EMOTIONS = [
+            "angry",
+            "fear",
+            "neutral",
+            "sad",
+            "disgust",
+            "happy",
+            "surprise",
+        ]
 
-def read_from_arduino(ser_connection):
-    """Continuously reads data from the serial port and prints it."""
-    global stop_reading_thread
-    while not stop_reading_thread:
-        try:
-            if ser_connection.in_waiting > 0:
-                line = ser_connection.readline().decode('utf-8').strip()
-                if line:
-                    print(f"Arduino: {line}")
-        except serial.SerialException as e:
-            print(f"Error reading from serial port: {e}")
-            break
-        except Exception as e:
-            print(f"Unexpected error in reading thread: {e}")
-            break
-        time.sleep(0.01) # Small delay to prevent busy-waiting
+    def _select_serial_port(self):
+        """Automatically selects an Arduino serial port."""
+        ports = serial.tools.list_ports.comports()
+        if not ports:
+            logger.warning(
+                "No serial ports found. Please ensure your Arduino is connected."
+            )
+            return None
 
-def select_serial_port():
-    """Lists available serial ports and prompts the user to select one."""
-    ports = serial.tools.list_ports.comports()
-    if not ports:
-        print("No serial ports found. Please ensure your Arduino is connected.")
+        for port in ports:
+            # Look for common Arduino descriptions
+            if (
+                "Arduino" in port.description
+                or "USB-SERIAL CH340" in port.description
+                or "ttyACM" in port.device
+            ):
+                logger.info(
+                    f"Auto-selected Arduino port: {port.device} ({port.description})"
+                )
+                return port.device
+
+        logger.warning(
+            "No Arduino-like serial port found automatically. Please check connection."
+        )
         return None
 
-    print("Available serial ports:")
-    candidate_port = None
-    for i, port in enumerate(ports):
-        print(f"  {i+1}: {port.device} ({port.description})")
-        if candidate_port is None and 'Arduino' in port.description:
-            candidate_port = port
-    
-    if candidate_port:
-        print(f"Auto selecting arduino port: {candidate_port.device} ({candidate_port.description})")
-        return candidate_port.device
+    def list_available_ports(self):
+        """Lists all available serial ports."""
+        ports = serial.tools.list_ports.comports()
+        if not ports:
+            return []
 
-    while True:
-        try:
-            choice = input("Enter the number of the port to use: ")
-            index = int(choice) - 1
-            if 0 <= index < len(ports):
-                return ports[index].device
-            else:
-                print("Invalid choice. Please enter a valid number.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        available_ports_info = []
+        for port in ports:
+            available_ports_info.append(
+                {"device": port.device, "description": port.description}
+            )
+        return available_ports_info
 
-def main():
-    """Main function to connect to Arduino and send random emotions."""
-    global stop_reading_thread
-    ser = None
-    reading_thread = None
-    try:
-        selected_port = select_serial_port()
+    def initialize_connection(self):
+        """Establishes serial connection and starts reading thread."""
+        if self.ser and self.ser.is_open:
+            logger.info("Serial connection already open.")
+            return True
+
+        selected_port = self._select_serial_port()
         if not selected_port:
+            logger.error("Failed to initialize: No serial port selected.")
+            available_ports = self.list_available_ports()
+            if available_ports:
+                logger.info("Available serial ports:")
+                for p in available_ports:
+                    logger.info(f"  - {p['device']} ({p['description']})")
+            else:
+                logger.info("No serial ports found at all.")
+            return False
+
+        try:
+            logger.info(
+                f"Attempting to connect to Arduino on {selected_port} at {self.BAUD_RATE} baud..."
+            )
+            self.ser = serial.Serial(selected_port, self.BAUD_RATE, timeout=1)
+            time.sleep(2)  # Give Arduino time to reset
+
+            self.stop_reading_thread = False
+            self.reading_thread = threading.Thread(target=self._read_from_arduino)
+            self.reading_thread.daemon = True
+            self.reading_thread.start()
+            logger.info(
+                "Arduino serial connection established and reading thread started."
+            )
+            return True
+        except serial.SerialException as e:
+            logger.error(f"Could not open serial port {selected_port}: {e}")
+            logger.error("Please ensure:")
+            logger.error("  1. The Arduino is connected to your computer.")
+            logger.error("  2. The selected port is correct.")
+            logger.error("  3. The Arduino IDE Serial Monitor is closed.")
+            self.ser = None
+            return False
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during connection: {e}")
+            self.ser = None
+            return False
+
+    def _read_from_arduino(self):
+        """Continuously reads data from the serial port."""
+        while not self.stop_reading_thread:
+            try:
+                if self.ser and self.ser.in_waiting > 0:
+                    line = self.ser.readline().decode("utf-8").strip()
+                    if line:
+                        logger.debug(f"Arduino: {line}")
+            except serial.SerialException as e:
+                logger.error(f"Error reading from serial port: {e}")
+                break
+            except Exception as e:
+                logger.error(f"Unexpected error in Arduino reading thread: {e}")
+                break
+            time.sleep(0.01)
+
+    def update_led(self, emotion: str):
+        """Sends an emotion string over the serial connection to update LED."""
+        if not self.ser or not self.ser.is_open:
+            logger.warning("Serial connection not established. Cannot send emotion.")
             return
 
-        print(f"Attempting to connect to Arduino on {selected_port} at {BAUD_RATE} baud...")
-        ser = serial.Serial(selected_port, BAUD_RATE, timeout=1)
-        time.sleep(2)  # Give the Arduino time to reset after connection
+        if emotion not in self.EMOTIONS:
+            logger.warning(
+                f"Invalid emotion '{emotion}'. Must be one of {self.EMOTIONS}"
+            )
+            return
 
-        # Start the reading thread
-        reading_thread = threading.Thread(target=read_from_arduino, args=(ser,))
-        reading_thread.daemon = True # Allow main program to exit even if thread is still running
-        reading_thread.start()
+        try:
+            self.ser.write(f"{emotion}\n".encode("utf-8"))
+            logger.info(f"Sent emotion to Arduino: '{emotion}'")
+        except serial.SerialException as e:
+            logger.error(f"Error sending data to Arduino: {e}")
+            # Consider attempting to re-initialize connection here if critical
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while sending emotion: {e}")
 
-        print("Connection established. Sending random emotions...")
-        while True:
-            # Choose a random emotion from the list
-            random_emotion = random.choice(EMOTIONS)
-            send_emotion(ser, random_emotion)
-
-            # Wait for a random duration between 1 and 10 seconds
-            random_delay = random.uniform(1, 10)
-            print(f"Waiting for {random_delay:.2f} seconds...")
-            time.sleep(random_delay)
-
-    except serial.SerialException as e:
-        print("\nError: Could not open serial port.")
-        print("Please ensure:")
-        print("  1. The Arduino is connected to your computer.")
-        print("  2. The selected port is correct.")
-        print("  3. The Arduino IDE Serial Monitor is closed (only one program can access the port at a time).")
-        print(f"Details: {e}")
-    except KeyboardInterrupt:
-        print("\nProgram terminated by user (Ctrl+C).")
-    except Exception as e:
-        print(f"\nAn unexpected error occurred: {e}")
-    finally:
-        stop_reading_thread = True # Signal the reading thread to stop
-        if reading_thread and reading_thread.is_alive():
-            reading_thread.join(timeout=1) # Wait for the thread to finish
-        if ser and ser.is_open:
-            print("Closing serial connection.")
-            ser.close()
-
-if __name__ == "__main__":
-    main()
+    def close_connection(self):
+        """Stops the reading thread and closes the serial connection."""
+        self.stop_reading_thread = True
+        if self.reading_thread and self.reading_thread.is_alive():
+            self.reading_thread.join(timeout=1)
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+            logger.info("Arduino serial connection closed.")
+        self.ser = None
+        self.reading_thread = None
