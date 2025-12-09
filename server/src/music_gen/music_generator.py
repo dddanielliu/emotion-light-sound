@@ -1,4 +1,5 @@
 import asyncio
+import io
 import logging
 import random
 import traceback
@@ -6,6 +7,7 @@ from typing import Any, Callable, Dict, Optional
 
 import torch
 from pydantic import BaseModel, ValidationError, model_validator
+from scipy.io import wavfile
 from transformers import pipeline
 
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +66,7 @@ class MusicGenerator:
         )
         return prompt
 
-    def generate(self, emotion: str, duration: int = 30) -> bytes:
+    def generate(self, emotion: str, duration: int = 10) -> bytes:
         prompt = self.emotion_to_prompt(emotion)
         logger.info(prompt)
         logger.info(f"duration = {duration}")
@@ -87,7 +89,15 @@ class MusicGenerator:
                 prompt,
                 forward_params={"do_sample": True, "max_new_tokens": duration * 50},
             )
-            return result
+            # Extract audio data and sampling rate
+            audio_data = result["audio"]
+            sampling_rate = result["sampling_rate"]
+
+            # Convert to WAV bytes
+            buffer = io.BytesIO()
+            wavfile.write(buffer, rate=sampling_rate, data=audio_data)
+            wav_bytes = buffer.getvalue()
+            return wav_bytes
 
         except Exception as e:
             traceback.print_exc()
