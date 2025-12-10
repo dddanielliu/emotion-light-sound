@@ -146,10 +146,15 @@ class QueueManager:
         url_creator_callable: Callable,
     ) -> None:
         self.music_generator = MusicGenerator()
-        self.queue: asyncio.Queue[InstanceItem] = asyncio.Queue()
 
         self.notify_socketio_client_music_generated = sender_callable
         self.create_url = url_creator_callable
+
+        self._latest_post_item: Optional[InstanceItem] = None
+        self._latest_pre_item: Optional[InstanceItem] = None
+        self._queue_lock: asyncio.Lock = asyncio.Lock()
+        self._new_item_event: asyncio.Event = asyncio.Event()
+        self.last_post_item: Optional[InstanceItem] = None
 
         self._runner_task = asyncio.create_task(self.runner())
 
@@ -168,50 +173,84 @@ class QueueManager:
             emotion=emotion,
             metadata=metadata,
         )
-        await self.queue.put(item)
+
+        async with self._queue_lock:
+            if item.stage == "post":
+                self._latest_post_item = item
+            elif item.stage == "pre":
+                self._latest_pre_item = item
+            else:
+                logger.warning(f"Received item with unknown stage: {item.stage}")
+            self._new_item_event.set()  # Signal the runner that there's a new item
 
     async def runner(self):
-        """Process items in the queue"""
+        """Process items based on priority: latest 'post', then latest 'pre', then last 'post' run."""
         while True:
-            item = await self.queue.get()
-            logger.info(f"Processing emotion: {item.model_dump()}")
-            # Even though we use async, this ensures only one generation at a time
-            generated_music = await asyncio.to_thread(
-                self.music_generator.generate, item.emotion
-            )
-            if item.sid:
-                logger.info(
-                    f"Generated {len(generated_music)} bytes for sid: {item.sid}"
-                )
-                logger.debug(f"\titem: {item.model_dump()}")
-                metadata = item.metadata if item.metadata else {}
+            await self._new_item_event.wait()  # Wait for event to be set
 
-                asyncio.create_task(
-                    self.notify_socketio_client_music_generated(
-                        event="music_generated",
-                        sid=item.sid,
-                        music_bytes=generated_music,
-                        stage=item.stage,
-                        emotion=item.emotion,
-                        metadata=metadata,
+            item_to_process: Optional[InstanceItem] = None
+            async with self._queue_lock:
+                self._new_item_event.clear()  # Clear the event as we are about to process
+
+                if self._latest_post_item:
+                    item_to_process = self._latest_post_item
+                    self._latest_post_item = None  # Remove the processed item
+                elif self._latest_pre_item:
+                    item_to_process = self._latest_pre_item
+                    self._latest_pre_item = None  # Remove the processed item
+                elif self.last_post_item:
+                    logger.info(
+                        "No new 'post' or 'pre' items. Running last 'post' item again."
                     )
+                    item_to_process = self.last_post_item
+                    self._new_item_event.set()  # Set event to trigger loop again for fallback
+                else:
+                    logger.debug("No items to process. Waiting for new items.")
+
+            if item_to_process:
+                logger.info(f"Processing emotion: {item_to_process.model_dump()}")
+                generated_music = await asyncio.to_thread(
+                    self.music_generator.generate, item_to_process.emotion
                 )
 
-            if item.client_id:
-                logger.info(
-                    f"Generated {len(generated_music)} bytes for client_id: {item.client_id}"
-                )
-                logger.debug(f"\titem: {item.model_dump()}")
-                asyncio.create_task(
-                    self.create_url(
-                        owner_id=item.client_id,
-                        music_bytes=generated_music,
-                        stage=item.stage,
-                        emotion=item.emotion,
-                        metadata=item.metadata,
+                if item_to_process.stage == "post":
+                    self.last_post_item = item_to_process
+
+                self._new_item_event.set()  # Set event to trigger loop again
+
+                if item_to_process.sid:
+                    logger.info(
+                        f"Generated {len(generated_music)} bytes for sid: {item_to_process.sid}"
                     )
-                )
+                    logger.debug(f"\titem: {item_to_process.model_dump()}")
+                    metadata = (
+                        item_to_process.metadata if item_to_process.metadata else {}
+                    )
 
-            self.queue.task_done()
+                    asyncio.create_task(
+                        self.notify_socketio_client_music_generated(
+                            event="music_generated",
+                            sid=item_to_process.sid,
+                            music_bytes=generated_music,
+                            stage=item_to_process.stage,
+                            emotion=item_to_process.emotion,
+                            metadata=metadata,
+                        )
+                    )
 
-            logger.info(f"Finished processing item: {item.model_dump()}")
+                if item_to_process.client_id:
+                    logger.info(
+                        f"Generated {len(generated_music)} bytes for client_id: {item_to_process.client_id}"
+                    )
+                    logger.debug(f"\titem: {item_to_process.model_dump()}")
+                    asyncio.create_task(
+                        self.create_url(
+                            owner_id=item_to_process.client_id,
+                            music_bytes=generated_music,
+                            stage=item_to_process.stage,
+                            emotion=item_to_process.emotion,
+                            metadata=item_to_process.metadata,
+                        )
+                    )
+
+                logger.info(f"Finished processing item: {item_to_process.model_dump()}")
