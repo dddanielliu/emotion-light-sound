@@ -11,5 +11,4 @@ dependencies = [
     "python-socketio>=5.14.3",
     "requests>=2.31.0",
     "uvicorn>=0.38.0",
-    "opencv_face",
 ]
