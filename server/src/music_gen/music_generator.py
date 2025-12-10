@@ -18,14 +18,15 @@ class MusicGenerator:
         self.device = None
         self.synthesiser = None
         self.emotion_prompt = {
-            "angry": "E Phrygian, an extremely fast and aggressive rock-like rhythm. Piano hits rapid, low-register clusters. Cello/Viola plays intense, short-bowed bursts. Pounding, repetitive bassline and explosive, heavy percussion, reflecting turmoil.",
-            "disgust": "C Phrygian, extremely fast and aggressive rock music. Features sharp, dissonant low-register piano clusters, heavy tremolo strings, and loud, pounding drum and bass rhythms.",
-            "fear": "C Locrian, a slow, deeply unsettling and suspenseful atmosphere. Uses sustained, quiet, and highly dissonant piano notes, low-register string drones, and sparse, irregular bass drum hits.",
-            "happy": "G Major, a bright and uplifting up-tempo track that gradually builds energy. The piano uses high, staccato chords. Cello/Viola takes a joyful, counter-melody role. Driving electric bass and bright, accented percussion.",
-            "sad": "G Major, a bright and uplifting up-tempo track that gradually builds energy. The piano uses high, staccato chords. Cello/Viola takes a joyful, counter-melody role. Driving electric bass and bright, accented percussion.",
-            "surprise": "A Minor transitioning to A Major, a dramatic musical event with a sudden, sharp dynamic shift. Begins quietly with sparse, low piano notes and high-tension cello tremolo, then explodes into a loud, fast bass and drum sequence, ending with a sudden, loud strike.",
-            "neutral": "F Ionian, a warm and steady mid-tempo ambient piece. The piano plays a simple, repetitive arpeggio pattern. Cello/Viola section provides a smooth, sustained backdrop. Gentle electric bassline and minimal percussion. Suitable for a flowing transition.",
+        "happy": "Uplifting EDM, Progressive House, major key, bright synthesizer leads, energetic beat, euphoria, danceable, optimistic, catchy melody",
+        "sad": "Emotional EDM,no drums ,sad piano melody, orchestral string section, cinematic atmosphere, slow electronic beat, deep synthesizer bass, melancholic, sentimental, touching",
+        "angry": "Epic Orchestral EDM, Epic cinematic score, deep brass, aggressive strings, dark choir, building tension, minimal percussion, overwhelming",
+        "fear": "Dark Ambient Soundscape, horror atmosphere, environmental sounds, eerie wind, distant metallic echoes, creepy synth texture, suspenseful, psychological, unsettling, cold",
+        "disgust": "Glitchy electronic music, Acid Techno, squelchy synth, distorted texture, weird rhythm, uncomfortable, dissonant, odd, unpleasant, experimental",
+        "surprise": "Cinematic EDM, circus music, fast, chaotic, calliope, brass band, playful, comedic shock.",
+        "neutral": "Lo-fi, peaceful steady beat, smooth synthesizer, relaxing, neutral atmosphere, background music, chill, rhythmic, flow, minimal"
         }
+
         self._set_device()
         self._load_model_once()
 
@@ -56,11 +57,11 @@ class MusicGenerator:
             logger.info(f"Using CPU: {self.device}")
 
     def emotion_to_prompt(self, emotion: str) -> str:
-        inst = "stainway piano, string, drumset, bass"
+        tonic = "C key"
         prompt = (
             self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"])
-            + ", "
-            + inst
+            +","
+            +tonic
         )
         return prompt
 
