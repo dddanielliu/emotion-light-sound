@@ -70,8 +70,8 @@ async function startPreviewAudioVideo() {
 
     } catch (err) {
         console.error("Preview error:", err);
-        setVideoStatus("preview error");
-        setMicStatus("preview error");
+        setVideoStatus(`Error: ${err.name} - ${err.message}`);
+        setMicStatus(`Error: ${err.name}`);
     }
 }
 
@@ -93,6 +93,7 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
     });
 
     socket.on('connect', () => {
+        console.log("✅ Socket connected!");
         statusEl.textContent = `Status: Connected (Client ID: ${clientId})`;
         statusEl.style.backgroundColor = '#ccffcc';
         setSocketStatus("connected");
@@ -102,6 +103,7 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
     });
 
     socket.on('disconnect', (reason) => {
+        console.log("❌ Socket disconnected:", reason);
         statusEl.textContent = `Status: Disconnected (${reason})`;
         statusEl.style.backgroundColor = '#e0e0e0';
         buttonEl.disabled = false;
@@ -118,6 +120,7 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
     });
 
     socket.on('connect_error', (error) => {
+        console.error("Socket connection error:", error);
         statusEl.textContent = `Status: Error (${error.message})`;
         statusEl.style.backgroundColor = '#ffcccc';
         buttonEl.disabled = false;
@@ -126,6 +129,7 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
     });
 
     socket.on('processed_video_frame', (metadata, blob) => {
+        console.log("📹 Received processed_video_frame:", metadata);
         // 1. Get the display element (now an <img>)
         const processedImage = document.getElementById('processed_cam');
 
@@ -148,9 +152,31 @@ function connectSocket(clientId, statusEl, buttonEl, inputEl) {
                 if (emotionEl) {
                     emotionEl.textContent = metadata.emotion.toUpperCase();
                 }
+
+                // Update bubble visualization
+                console.log("Calling setBubbleEmotion with:", metadata.emotion);
+                if (typeof setBubbleEmotion === 'function') {
+                    setBubbleEmotion(metadata.emotion);
+                } else {
+                    console.warn("setBubbleEmotion is not a function!");
+                }
             }
         }
     });
+
+    socket.on('music_generated', (data) => {
+        console.log("Music generated event received:", data);
+        if (data && data.url) {
+            playMusic(data.url);
+        }
+
+        // Display music emotion info in the top right corner
+        if (data) {
+            console.log("Displaying music emotion:", data);
+            displayMusicEmotion(data);
+        }
+    });
+
 }
 
 // --- START STREAMING USING EXISTING STREAM ---
@@ -228,4 +254,94 @@ function startVideoProcessing(client_id, stream) {
 
         setVideoStatus("active");
     };
+}
+
+// --- AUDIO PLAYBACK ---
+let currentAudio = null;
+const FADE_DURATION = 2000; // 2 seconds
+
+function playMusic(url) {
+    console.log("Playing music from:", url);
+    const newAudio = new Audio(url);
+    newAudio.volume = 0; // Start silent for fade-in
+
+    // Play the new audio
+    newAudio.play().then(() => {
+        console.log("Music started playing");
+
+        // Fade In New Audio
+        const fadeInInterval = setInterval(() => {
+            if (newAudio.volume < 1.0) {
+                newAudio.volume = Math.min(1.0, newAudio.volume + 0.05); // Increase volume
+            } else {
+                clearInterval(fadeInInterval);
+            }
+        }, FADE_DURATION / 20); // Update 20 times within fade duration
+
+        // Fade Out Old Audio (if exists)
+        if (currentAudio) {
+            const oldAudio = currentAudio;
+            const fadeOutInterval = setInterval(() => {
+                if (oldAudio.volume > 0.05) {
+                    oldAudio.volume = Math.max(0, oldAudio.volume - 0.05); // Decrease volume
+                } else {
+                    clearInterval(fadeOutInterval);
+                    oldAudio.pause();
+                    oldAudio.remove(); // Clean up
+                    console.log("Old music stopped and removed");
+                }
+            }, FADE_DURATION / 20);
+        }
+
+        // Update current audio reference
+        currentAudio = newAudio;
+
+        // Handle when the song ends (optional: loop or just stop)
+        newAudio.onended = () => {
+            console.log("Music finished");
+            // If this is still the current audio, clear it
+            if (currentAudio === newAudio) {
+                currentAudio = null;
+            }
+        };
+
+    }).catch(err => {
+        console.error("Error playing music:", err);
+    });
+}
+
+// --- DISPLAY MUSIC EMOTION ---
+function displayMusicEmotion(data) {
+    const display = document.getElementById('music_emotion_display');
+    const emotionValue = document.getElementById('music_emotion_value');
+
+    if (!display || !emotionValue) {
+        console.warn("Music emotion display elements not found");
+        return;
+    }
+
+    // Extract emotion
+    const emotion = data.emotion || 'unknown';
+
+    // Update content
+    emotionValue.textContent = emotion.toUpperCase();
+
+    // Change gradient color based on emotion
+    const emotionColors = {
+        'happy': 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+        'sad': 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+        'angry': 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+        'neutral': 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+        'fear': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        'surprise': 'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+        'disgust': 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)'
+    };
+
+    display.style.background = emotionColors[emotion.toLowerCase()] ||
+        'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+
+    // Show the display with animation
+    display.classList.add('visible');
+
+    console.log(`✨ Music emotion displayed: ${emotion}`);
 }

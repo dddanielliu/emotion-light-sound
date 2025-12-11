@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Stream Server</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         /* Global resets for neatness */
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            margin: 0 auto; 
-            padding: 20px; 
-            max-width: 1000px; /* Keeps content centered on big screens */
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0 auto;
+            padding: 20px;
+            max-width: 1000px;
+            /* Keeps content centered on big screens */
             color: #333;
             text-align: center;
         }
@@ -22,8 +24,9 @@
             border-radius: 8px;
             margin-bottom: 20px;
         }
-        
-        input, button {
+
+        input,
+        button {
             padding: 10px;
             font-size: 16px;
             border-radius: 4px;
@@ -36,12 +39,16 @@
             border: none;
             cursor: pointer;
         }
-        button:hover { background-color: #0056b3; }
+
+        button:hover {
+            background-color: #0056b3;
+        }
 
         /* Layout for the two video feeds */
         .video-container {
             display: flex;
-            flex-wrap: wrap; /* Wraps to next line on mobile */
+            flex-wrap: wrap;
+            /* Wraps to next line on mobile */
             gap: 20px;
             justify-content: center;
             align-items: flex-start;
@@ -49,11 +56,13 @@
 
         .video-box {
             flex: 1;
-            min-width: 300px; /* Prevents them from getting too small */
+            min-width: 300px;
+            /* Prevents them from getting too small */
         }
 
         /* Video/Image styling */
-        video, img {
+        video,
+        img {
             width: 100%;
             height: auto;
             border: 1px solid #ddd;
@@ -61,7 +70,10 @@
             background: #000;
         }
 
-        h3 { margin-bottom: 10px; margin-top: 0; }
+        h3 {
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
 
         /* Status Box */
         #stream_status {
@@ -71,14 +83,59 @@
             background: #fff;
             border: 1px solid #eee;
             border-radius: 8px;
-            display: inline-block; /* Fits to content width */
+            display: inline-block;
+            /* Fits to content width */
             min-width: 250px;
+        }
+
+        /* Music Emotion Display - Top Right */
+        #music_emotion_display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            min-width: 200px;
+            text-align: center;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+        }
+
+        #music_emotion_display.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #music_emotion_display h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        #music_emotion_value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 5px 0;
+            text-transform: uppercase;
         }
     </style>
 </head>
+
 <body>
 
     <h1>Stream Server</h1>
+
+    <!-- Music Emotion Display (Top Right) -->
+    <div id="music_emotion_display">
+        <h4>🎵 Music Emotion</h4>
+        <div id="music_emotion_value">-</div>
+    </div>
 
     <div class="control-panel">
         <label for="client_id_input">Client ID:</label>
@@ -88,7 +145,7 @@
     </div>
 
     <div class="video-container">
-        
+
         <div class="video-box">
             <h3>Local Camera</h3>
             <video id="cam" autoplay playsinline muted></video>
@@ -97,19 +154,24 @@
         <div class="video-box">
             <h3>Processed Frame</h3>
             <img id="processed_cam" alt="Waiting for stream..." />
-            <div id="emotion_result" style="margin-top: 10px; font-size: 24px; font-weight: bold; color: #007aff;">Neutral</div>
+            <div id="emotion_result" style="margin-top: 10px; font-size: 24px; font-weight: bold; color: #007aff;">
+                Neutral</div>
         </div>
 
     </div>
 
     <div id="stream_status">
-        <strong>System Diagnostics</strong><hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+        <strong>System Diagnostics</strong>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
         <div>Socket: <span id="s_socket">disconnected</span></div>
         <div>Microphone: <span id="s_mic">inactive</span></div>
         <div>Video: <span id="s_video">inactive</span></div>
     </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="/js/bubbles.js"></script>
     <script src="/js/main.js"></script>
 </body>
+
 </html>

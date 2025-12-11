@@ -15,7 +15,7 @@ latest_frame_bytes = None
 is_processing = False
 last_processed_image = None
 last_emotion_result = "neutral"
-emotion_buffer = deque(maxlen=10)  # Now stores (emotion, score) tuples
+emotion_buffer = deque(maxlen=50)  # Now stores (emotion, score) tuples
 
 # Global variables for timed emotion updates
 last_pre_update_time = 0
@@ -73,7 +73,7 @@ def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
 
     # If already processing, return the last result immediately (frame skipping)
     if is_processing:
-        print(f"⏭️  FRAME SKIPPED - DeepFace busy, returning cached result")
+        # print(f"⏭️  FRAME SKIPPED - DeepFace busy, returning cached result")
         if last_processed_image is not None:
             return last_processed_image, last_emotion_result
         else:
@@ -84,7 +84,7 @@ def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
             return buffer.tobytes(), "neutral"
 
     # Mark as processing
-    print(f"🔄 START PROCESSING - Frame entered at {frame_start_time:.3f}")
+    # print(f"🔄 START PROCESSING - Frame entered at {frame_start_time:.3f}")
     is_processing = True
     processing_start_time = time.time()
 
@@ -195,15 +195,15 @@ def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
                 # Calculate confidence as average score of matching emotions
                 confidence = calculate_confidence(emotion_buffer, emotion_result)
 
-                print(
-                    f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f}) | Buffer: {list(emotion_buffer)}"
-                )
+                # print(
+                #     f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f}) | Buffer: {list(emotion_buffer)}"
+                # )
             else:
                 emotion_result = current_emotion
                 confidence = emotion_score
-                print(
-                    f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f})"
-                )
+                # print(
+                #     f"Raw: {current_emotion:10} (score: {emotion_score:.2f}) | Smoothed: {emotion_result:10} (confidence: {confidence:.2f})"
+                # )
 
             # Check if we need to send timed emotion updates
             current_time = time.time()
@@ -258,9 +258,9 @@ def detect_faces(image_bytes: bytes) -> tuple[bytes, str]:
         processing_duration = processing_end_time - processing_start_time
         total_duration = processing_end_time - frame_start_time
 
-        print(
-            f"✅ PROCESSING COMPLETE - Total: {total_duration:.3f}s | DeepFace: {processing_duration:.3f}s | Result: {emotion_result}"
-        )
+        # print(
+        #     f"✅ PROCESSING COMPLETE - Total: {total_duration:.3f}s | DeepFace: {processing_duration:.3f}s | Result: {emotion_result}"
+        # )
 
         return image_processed, emotion_result
 
