@@ -5,16 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "arduino_led",
     "client_web_server",
     "opencv_face",
 ]
 
 [tool.uv.sources]
+arduino_led = { workspace = true }
 client_web_server = { workspace = true }
 opencv_face = { workspace = true }
 
 [tool.uv.workspace]
 members = [
+    "src/arduino_led",
     "src/client_web_server",
     "src/opencv_face",
 ]

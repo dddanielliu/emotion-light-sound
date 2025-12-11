@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..opencv_face import face_detection
+from ..arduino_led.send_led import ArduinoLEDController
 
 # Load environment variables from .env file
 load_dotenv()
@@ -29,6 +30,9 @@ logger.setLevel(logging.DEBUG)
 # Get cloud server URL from environment
 CLOUD_SERVER_URL = os.getenv("CLOUD_SERVER_URL")
 print("CLOUD_SERVER_URL:", CLOUD_SERVER_URL)
+
+# Initialize Arduino LED Controller
+arduino_led_controller = ArduinoLEDController()
 
 
 sio_cloud = socketio.AsyncClient()
@@ -164,11 +168,22 @@ async def lifespan(app: FastAPI):
             "Set CLOUD_SERVER_URL environment variable to enable cloud features"
         )
 
+    # Initialize Arduino LED connection
+    logger.info("Attempting to initialize Arduino LED connection...")
+    if arduino_led_controller.initialize_connection():
+        logger.info("✅ Arduino LED connection initialized successfully!")
+    else:
+        logger.warning("❌ Failed to initialize Arduino LED connection. LED control will be unavailable.")
+
     yield
 
     # Cleanup on shutdown
     if sio_cloud.connected:
         await sio_cloud.disconnect()
+    
+    # Close Arduino LED connection
+    logger.info("Closing Arduino LED connection...")
+    arduino_led_controller.close_connection()
 
 
 # Create SocketIO server

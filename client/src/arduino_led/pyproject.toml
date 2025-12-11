@@ -1,0 +1,14 @@
+[project]
+name = "arduino-led"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyserial>=3.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["send_led", "test_led"]
+
