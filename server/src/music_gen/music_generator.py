@@ -60,7 +60,7 @@ class MusicGenerator:
         tonic = "C key"
         prompt = (
             self.emotion_prompt.get(emotion.lower(), self.emotion_prompt["neutral"])
-            +","
+            +", "
             +tonic
         )
         return prompt
