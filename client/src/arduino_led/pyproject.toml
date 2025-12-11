@@ -9,6 +9,6 @@ dependencies = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["arduino_led"]
-include = ["arduino_led*"]
+where = ["."]
+include = ["send_led", "test_led"]
 
