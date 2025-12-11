@@ -27,10 +27,11 @@ def store_music(music, filename="song.wav"):
 if __name__ == "__main__":
     mg = MusicGenerator()
     # for emotion in mg.emotion_prompt:
-    for i in range(2):
+    emo = {"happy", "fear", "sad", "disgust", "surprise", "neutral", "angry"}
+    for i in emo:
         start = time.time()
-        emotion = "angry"
-        music = mg.generate(emotion=emotion, duration=5)
+        emotion = i
+        music = mg.generate(emotion=emotion, duration=10)
         end = time.time()
         store_music(music, filename=f"{emotion}.wav")
         print(f"生成耗時: {end - start:.2f} 秒")
