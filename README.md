@@ -19,48 +19,18 @@ The project consists of two main components:
 -   An Arduino board
 -   A webcam
 
+### Client Setup
+
+The client runs locally on your machine.
+
 ### Server Setup
 
-The server runs inside a Docker container.
+The server can either runs remotely or locally, it is recommened the server to have GPU to accelerate music generation process.
 
-```bash
-cd server
-docker-compose up -d
-```
-
-The server will be running on `http://localhost:8080`.
+See [server/](server).
 
 ### Client Setup
 
 The client runs locally on your machine.
 
-1.  **Navigate to the client directory:**
-    ```bash
-    cd client
-    ```
-
-2.  **Install dependencies:**
-    It's recommended to use a virtual environment.
-    ```bash
-    # Using Python's built-in venv
-    python -m venv .venv
-    source .venv/bin/activate
-    
-    # Install dependencies using uv (or pip)
-    pip install uv
-    uv pip install -e .
-    ```
-
-3.  **Configure Environment:**
-    Create a `.env` file from the example and ensure `CLOUD_SERVER_URL` points to your server's address.
-    ```bash
-    cp .env.example .env
-    # Edit .env and set CLOUD_SERVER_URL=http://localhost:8080
-    ```
-
-4.  **Run the client:**
-    The client is launched via its `src` module.
-    ```bash
-    python -m src
-    ```
-    Open your web browser to `http://localhost:8000` to start the experience.
+See [client/](client).
