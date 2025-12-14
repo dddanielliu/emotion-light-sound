@@ -17,14 +17,12 @@ The client application is responsible for:
 
 Ensure you are in the `client` directory. It is recommended to use a virtual environment.
 
+(Prerequests: You need to have [uv](https://docs.astral.sh/uv/getting-started/installation/#installing-uv) installed.)
+
 ```bash
 # Create and activate a virtual environment
-python -m venv .venv
+uv sync
 source .venv/bin/activate
-
-# Install dependencies
-# Assumes you have uv installed (`pip install uv`)
-uv pip install -e .
 ```
 
 ### 2. Configuration
