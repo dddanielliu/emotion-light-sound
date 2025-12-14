@@ -25,7 +25,7 @@ The server is designed to be run with Docker and Docker Compose, as it relies on
 To build and run the server, execute the following command from the `server` directory:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 This command will:
@@ -36,10 +36,10 @@ This command will:
 
 You can check the logs of the running container with:
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 To stop the server, run:
 ```bash
-docker-compose down
+docker compose down
 ```
