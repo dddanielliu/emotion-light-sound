@@ -23,14 +23,10 @@ The project consists of two main components:
 
 The client runs locally on your machine.
 
+See [client/](client).
+
 ### Server Setup
 
 The server can either runs remotely or locally, it is recommened the server to have GPU to accelerate music generation process.
 
 See [server/](server).
-
-### Client Setup
-
-The client runs locally on your machine.
-
-See [client/](client).
